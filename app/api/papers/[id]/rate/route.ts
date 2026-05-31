@@ -82,7 +82,7 @@ function confirmationHtml(rating: string) {
       </head>
       <body style="margin:0;background:#f4f4f5;color:#18181b;font-family:Arial,sans-serif;">
         <main style="max-width:520px;margin:15vh auto;padding:28px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;">
-          <p style="margin:0 0 8px;color:#0f766e;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Paper Library</p>
+          <p style="margin:0 0 8px;color:#0f766e;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">ArXiv Sieve</p>
           <h1 style="margin:0 0 12px;font-size:24px;">Rating saved</h1>
           <p style="margin:0;color:#52525b;font-size:15px;line-height:1.6;">Saved as ${rating}. You can close this tab.</p>
         </main>

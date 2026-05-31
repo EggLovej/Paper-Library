@@ -1,19 +1,19 @@
 import type { ComplexityMode, Paper, PaperProcessingJob } from "./types";
 
 export const RATING_OPTIONS = [
-  { value: "", label: "None" },
-  { value: "interested", label: "Interested" },
-  { value: "maybe", label: "Maybe" },
-  { value: "not_interested", label: "Not interested" },
-  { value: "read_later", label: "Read later" },
+  { value: "", label: "No verdict" },
+  { value: "interested", label: "Save" },
+  { value: "maybe", label: "Maybe pile" },
+  { value: "not_interested", label: "Toss" },
+  { value: "read_later", label: "Reading stack" },
 ];
 
 export const COMPLEXITY_OPTIONS: Array<{
   value: ComplexityMode;
   label: string;
 }> = [
-  { value: "normal", label: "Normal" },
-  { value: "easy", label: "Easy" },
+  { value: "normal", label: "Technical" },
+  { value: "easy", label: "Plain English" },
   { value: "caveman", label: "Caveman" },
 ];
 
@@ -33,7 +33,22 @@ export function formatDate(value?: string | null) {
 
 export function formatLabel(value?: string | null) {
   if (!value) {
-    return "None";
+    return "No verdict";
+  }
+
+  const labels: Record<string, string> = {
+    completed: "Summarized",
+    processing: "Reading",
+    pending: "Queued",
+    failed: "Needs retry",
+    interested: "Save",
+    maybe: "Maybe pile",
+    not_interested: "Toss",
+    read_later: "Reading stack",
+  };
+
+  if (labels[value]) {
+    return labels[value];
   }
 
   return value
@@ -63,15 +78,15 @@ export function isActivePaper(paper: Paper) {
 export function getStatusClasses(value?: string | null) {
   switch (value) {
     case "completed":
-      return "bg-teal-50 text-teal-800 ring-teal-200";
+      return "bg-teal-50 text-teal-800 ring-teal-200 dark:bg-teal-950 dark:text-teal-200 dark:ring-teal-900";
     case "processing":
-      return "bg-sky-50 text-sky-800 ring-sky-200";
+      return "bg-orange-50 text-orange-800 ring-orange-200 dark:bg-amber-950 dark:text-amber-200 dark:ring-amber-900";
     case "pending":
-      return "bg-amber-50 text-amber-800 ring-amber-200";
+      return "bg-stone-100 text-stone-700 ring-stone-300 dark:bg-stone-900 dark:text-stone-200 dark:ring-stone-700";
     case "failed":
-      return "bg-red-50 text-red-700 ring-red-200";
+      return "bg-red-50 text-red-700 ring-red-200 dark:bg-red-950 dark:text-red-200 dark:ring-red-900";
     default:
-      return "bg-zinc-100 text-zinc-700 ring-zinc-200";
+      return "bg-[var(--desk-surface-2)] text-[var(--desk-muted)] ring-[var(--desk-border)]";
   }
 }
 
@@ -86,7 +101,7 @@ export function getRatingClasses(value?: string | null) {
     case "not_interested":
       return "bg-zinc-100 text-zinc-600 ring-zinc-200";
     default:
-      return "bg-white text-zinc-600 ring-zinc-200";
+      return "bg-[var(--desk-surface)] text-[var(--desk-muted)] ring-[var(--desk-border)]";
   }
 }
 

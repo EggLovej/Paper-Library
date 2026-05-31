@@ -114,7 +114,7 @@ function getHtml(report: PaperReportEmail) {
   return `
     <div style="background:#f4f4f5;padding:24px;">
       <main style="max-width:720px;margin:0 auto;border:1px solid #e4e4e7;border-radius:8px;background:#ffffff;padding:28px;font-family:Arial,sans-serif;color:#18181b;">
-        <p style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0f766e;">Paper Library</p>
+        <p style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#0f766e;">ArXiv Sieve</p>
         <h1 style="margin:0 0 12px;font-size:26px;line-height:1.25;color:#18181b;">${escapeHtml(title)}</h1>
         <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#52525b;">${escapeHtml(report.authors.length ? report.authors.join(", ") : "Authors pending")}</p>
         <p style="margin:0 0 20px;font-size:13px;color:#71717a;">arXiv ${escapeHtml(report.arxivId)} · ${escapeHtml(report.model)}</p>
@@ -124,7 +124,7 @@ function getHtml(report: PaperReportEmail) {
         </div>
 
         <div style="margin:0 0 24px;padding:16px;border-radius:8px;background:#f0fdfa;border:1px solid #ccfbf1;">
-          <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#115e59;">Rate this paper</p>
+          <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#115e59;">Verdict</p>
           ${buttons}
         </div>
 
@@ -155,7 +155,7 @@ function getText(report: PaperReportEmail) {
     `Model: ${report.model}`,
     `PDF: ${report.pdfUrl}`,
     "",
-    "Rate this paper:",
+    "Verdict:",
     ratingLinks,
     "",
     "Overview",

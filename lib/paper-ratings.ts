@@ -8,10 +8,10 @@ export const PAPER_RATINGS = [
 export type PaperRating = (typeof PAPER_RATINGS)[number];
 
 export const PAPER_RATING_LABELS: Record<PaperRating, string> = {
-  interested: "Interested",
-  maybe: "Maybe",
-  not_interested: "Not interested",
-  read_later: "Read later",
+  interested: "Save",
+  maybe: "Maybe pile",
+  not_interested: "Toss",
+  read_later: "Reading stack",
 };
 
 export function isPaperRating(value: unknown): value is PaperRating {

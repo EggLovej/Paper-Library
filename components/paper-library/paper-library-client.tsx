@@ -97,10 +97,10 @@ export function PaperLibraryClient() {
   const runProcessingQueue = useCallback(
     async (options?: { limit?: number; silent?: boolean }) => {
       if (!isAdmin) {
-        setProcessState({
-          status: "error",
-          message: "Admin login required.",
-        });
+      setProcessState({
+        status: "error",
+        message: "Super secret passphrase required.",
+      });
         return;
       }
 
@@ -111,8 +111,8 @@ export function PaperLibraryClient() {
       setProcessState({
         status: "running",
         message: options?.silent
-          ? "Processing the queued paper..."
-          : "Processing queued papers...",
+          ? "Summarizing the queued paper..."
+          : "Summarizing queued papers...",
       });
 
       try {
@@ -282,7 +282,7 @@ export function PaperLibraryClient() {
     if (!isAdmin) {
       setSubmitState({
         status: "error",
-        message: "Admin login required.",
+        message: "Super secret passphrase required.",
       });
       return;
     }
@@ -401,7 +401,7 @@ export function PaperLibraryClient() {
       return;
     }
 
-    const shouldDelete = window.confirm(`Delete "${title}" from the library?`);
+    const shouldDelete = window.confirm(`Toss "${title}" from the sieve?`);
 
     if (!shouldDelete) {
       return;
@@ -635,57 +635,58 @@ export function PaperLibraryClient() {
 
   return (
     <div
-      className={`min-h-screen px-6 py-10 transition-colors ${
+      className={`paper-app min-h-screen px-6 py-10 transition-colors ${
         isDarkMode
-          ? "dark bg-zinc-950 text-zinc-50"
-          : "bg-zinc-50 text-zinc-950"
+          ? "dark bg-[var(--desk-bg)] text-[var(--desk-ink)]"
+          : "bg-[var(--desk-bg)] text-[var(--desk-ink)]"
       } ${isThemeChanging ? "theme-changing" : ""}`}
     >
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-3">
-            <p className="text-sm font-medium uppercase tracking-wide text-teal-700 dark:text-teal-300">
-              Paper Library
+            <p className="text-sm font-medium uppercase tracking-wide text-[var(--desk-accent)]">
+              Personal research desk
             </p>
-            <h1 className="text-4xl font-semibold tracking-tight">
-              Paper Library
+            <h1 className="font-serif text-5xl font-semibold tracking-tight">
+              ArXiv Sieve
             </h1>
-            <p className="max-w-2xl text-base leading-7 text-zinc-600 dark:text-zinc-400">
-              Add arXiv or Scholar Inbox paper links, track processing state,
-              and review details from one table.
+            <p className="max-w-2xl text-base leading-7 text-[var(--desk-muted)]">
+              Triage papers, extract summaries, and keep only what matters
+              before your reading stack gets out of hand.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="flex h-10 w-10 items-center justify-center rounded-md border border-zinc-300 bg-white text-lg font-medium text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-            aria-label={
-              isDarkMode ? "Switch to light mode" : "Switch to dark mode"
-            }
-            title={isDarkMode ? "Light mode" : "Dark mode"}
-          >
-            {isDarkMode ? "☀" : "☾"}
-          </button>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <AdminPanel
+              isAdmin={isAdmin}
+              isAuthBusy={isAuthBusy}
+              password={adminPassword}
+              authMessage={authMessage}
+              onPasswordChange={setAdminPassword}
+              onLogin={handleLogin}
+              onLogout={() => void handleLogout()}
+            />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] text-lg font-medium text-[var(--desk-ink)] transition hover:bg-[var(--desk-surface-2)]"
+              aria-label={
+                isDarkMode ? "Switch to light mode" : "Switch to dark mode"
+              }
+              title={isDarkMode ? "Light mode" : "Dark mode"}
+            >
+              {isDarkMode ? "☀" : "☾"}
+            </button>
+          </div>
         </header>
-
-        <AdminPanel
-          isAdmin={isAdmin}
-          isAuthBusy={isAuthBusy}
-          password={adminPassword}
-          authMessage={authMessage}
-          onPasswordChange={setAdminPassword}
-          onLogin={handleLogin}
-          onLogout={() => void handleLogout()}
-        />
 
         {isAdmin ? (
           <form
             onSubmit={handleSubmit}
-            className="flex flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+            className="flex flex-col gap-4 rounded-lg border border-[var(--desk-border)] bg-[var(--desk-surface)] p-5 shadow-sm"
           >
             <label
               htmlFor="arxiv-url"
-              className="text-sm font-medium text-zinc-800 dark:text-zinc-200"
+              className="text-sm font-medium text-[var(--desk-ink)]"
             >
               Paper URL
             </label>
@@ -697,15 +698,15 @@ export function PaperLibraryClient() {
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
                 placeholder="https://arxiv.org/abs/2401.12345 or Scholar Inbox link"
-                className="min-h-12 flex-1 rounded-md border border-zinc-300 bg-white px-4 text-base text-zinc-950 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:ring-teal-950"
+                className="min-h-12 flex-1 rounded-md border border-[var(--desk-border)] bg-[var(--desk-bg)] px-4 text-base text-[var(--desk-ink)] outline-none transition placeholder:text-[var(--desk-muted)] focus:border-[var(--desk-accent)] focus:ring-2 focus:ring-teal-100 dark:focus:ring-teal-950"
                 required
               />
               <button
                 type="submit"
                 disabled={submitState.status === "submitting"}
-                className="min-h-12 rounded-md bg-zinc-950 px-5 text-base font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-teal-600 dark:hover:bg-teal-500 dark:disabled:bg-zinc-700"
+                className="min-h-12 rounded-md bg-[var(--desk-accent)] px-5 text-base font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitState.status === "submitting" ? "Submitting" : "Submit"}
+                {submitState.status === "submitting" ? "Adding" : "Add paper"}
               </button>
             </div>
             {submitState.status === "success" ? (
@@ -725,9 +726,9 @@ export function PaperLibraryClient() {
           <div className="flex flex-col gap-4">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">
-                {viewMode === "inbox" ? "Inbox" : "Papers"}
+                {viewMode === "inbox" ? "Priority pile" : "Paper stack"}
               </h2>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-[var(--desk-muted)]">
                 {papersState.papers.length > 0 ||
                 papersState.status !== "loading"
                   ? `${visiblePapers.length} shown of ${papersState.papers.length}`
@@ -737,16 +738,16 @@ export function PaperLibraryClient() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-2">
                 {[
-                  { value: "inbox", label: "Inbox", count: paperCounts.inbox },
-                  { value: "all", label: "All", count: paperCounts.all },
+                  { value: "inbox", label: "Priority", count: paperCounts.inbox },
+                  { value: "all", label: "All papers", count: paperCounts.all },
                   {
                     value: "active",
-                    label: "Processing",
+                    label: "Reading",
                     count: paperCounts.active,
                   },
                   {
                     value: "failed",
-                    label: "Failed",
+                    label: "Needs retry",
                     count: paperCounts.failed,
                   },
                 ].map((option) => (
@@ -756,8 +757,8 @@ export function PaperLibraryClient() {
                     onClick={() => setViewMode(option.value as ViewMode)}
                     className={`min-h-10 rounded-md border px-3 text-sm font-medium transition ${
                       viewMode === option.value
-                        ? "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950 dark:text-teal-200"
-                        : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                        ? "border-[var(--desk-accent)] bg-[var(--desk-surface)] text-[var(--desk-accent)]"
+                        : "border-[var(--desk-border)] bg-[var(--desk-surface)] text-[var(--desk-ink)] hover:bg-[var(--desk-surface-2)]"
                     }`}
                   >
                     {option.label}
@@ -769,17 +770,17 @@ export function PaperLibraryClient() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Rating
+                <label className="flex items-center gap-2 text-sm font-medium text-[var(--desk-muted)]">
+                  Verdict
                   <select
                     value={ratingFilter}
                     onChange={(event) =>
                       setRatingFilter(event.target.value as RatingFilter)
                     }
-                    className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-800 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-teal-950"
+                    className="min-h-10 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-3 text-sm text-[var(--desk-ink)] outline-none transition focus:border-[var(--desk-accent)] focus:ring-2 focus:ring-teal-100 dark:focus:ring-teal-950"
                   >
-                    <option value="any">Any rating</option>
-                    <option value="unrated">Unrated</option>
+                    <option value="any">Any verdict</option>
+                    <option value="unrated">No verdict</option>
                     {RATING_OPTIONS.filter((option) => option.value).map(
                       (option) => (
                         <option key={option.value} value={option.value}>
@@ -796,9 +797,9 @@ export function PaperLibraryClient() {
                       setViewMode("inbox");
                       setRatingFilter("any");
                     }}
-                    className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="min-h-10 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-3 text-sm font-medium text-[var(--desk-ink)] transition hover:bg-[var(--desk-surface-2)]"
                   >
-                    Reset
+                    Clear
                   </button>
                 ) : null}
                 {isAdmin ? (
@@ -808,19 +809,19 @@ export function PaperLibraryClient() {
                     onClick={() =>
                       void runProcessingQueue({ limit: 2, silent: false })
                     }
-                    className="min-h-10 rounded-md border border-teal-200 bg-teal-50 px-4 text-sm font-medium text-teal-800 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-900 dark:bg-teal-950 dark:text-teal-200 dark:hover:bg-teal-900"
+                    className="min-h-10 rounded-md border border-[var(--desk-accent)] bg-[var(--desk-surface)] px-4 text-sm font-medium text-[var(--desk-accent)] transition hover:bg-[var(--desk-surface-2)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {processState.status === "running"
-                      ? "Processing"
-                      : "Process"}
+                      ? "Summarizing"
+                      : "Summarize"}
                   </button>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => void loadPapers()}
-                  className="min-h-10 rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                  className="min-h-10 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-4 text-sm font-medium text-[var(--desk-ink)] transition hover:bg-[var(--desk-surface-2)]"
                 >
-                  Refresh
+                  Sync
                 </button>
               </div>
             </div>
@@ -890,17 +891,17 @@ function AdminPanel({
 }) {
   if (isAdmin) {
     return (
-      <div className="flex flex-col gap-3 rounded-lg border border-teal-200 bg-teal-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-teal-900 dark:bg-teal-950">
-        <p className="text-sm font-medium text-teal-800 dark:text-teal-200">
-          Admin mode
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="rounded-full border border-[var(--desk-accent)] bg-[var(--desk-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--desk-accent)]">
+          Curator mode
         </p>
         <button
           type="button"
           disabled={isAuthBusy}
           onClick={onLogout}
-          className="min-h-10 rounded-md border border-teal-200 bg-white px-4 text-sm font-medium text-teal-800 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-800 dark:bg-zinc-950 dark:text-teal-200 dark:hover:bg-teal-900"
+          className="min-h-9 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-3 text-sm font-medium text-[var(--desk-ink)] transition hover:bg-[var(--desk-surface-2)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Log out
+          Lock controls
         </button>
       </div>
     );
@@ -909,31 +910,33 @@ function AdminPanel({
   return (
     <form
       onSubmit={onLogin}
-      className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center dark:border-zinc-800 dark:bg-zinc-900"
+      className="flex max-w-md flex-col gap-2 rounded-lg border border-[var(--desk-border)] bg-[var(--desk-surface)] p-3 shadow-sm"
     >
       <label
         htmlFor="admin-password"
-        className="text-sm font-medium text-zinc-800 dark:text-zinc-200"
+        className="text-xs font-semibold uppercase tracking-wide text-[var(--desk-muted)]"
       >
-        Admin
+        For CRUD operations
       </label>
-      <input
-        id="admin-password"
-        type="password"
-        value={password}
-        onChange={(event) => onPasswordChange(event.target.value)}
-        placeholder="Password"
-        className="min-h-10 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:ring-teal-950"
-      />
-      <button
-        type="submit"
-        disabled={isAuthBusy}
-        className="min-h-10 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-teal-600 dark:hover:bg-teal-500 dark:disabled:bg-zinc-700"
-      >
-        {isAuthBusy ? "Logging in" : "Log in"}
-      </button>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          id="admin-password"
+          type="password"
+          value={password}
+          onChange={(event) => onPasswordChange(event.target.value)}
+          placeholder="Super secret passphrase"
+          className="min-h-10 min-w-0 flex-1 rounded-md border border-[var(--desk-border)] bg-[var(--desk-bg)] px-3 text-sm text-[var(--desk-ink)] outline-none transition placeholder:text-[var(--desk-muted)] focus:border-[var(--desk-accent)] focus:ring-2 focus:ring-teal-100 dark:focus:ring-teal-950"
+        />
+        <button
+          type="submit"
+          disabled={isAuthBusy}
+          className="min-h-10 rounded-md bg-[var(--desk-accent)] px-4 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isAuthBusy ? "Checking" : "Unlock"}
+        </button>
+      </div>
       {authMessage ? (
-        <p className="text-sm text-red-700 dark:text-red-300">{authMessage}</p>
+        <p className="text-sm text-[var(--desk-danger)]">{authMessage}</p>
       ) : null}
     </form>
   );
