@@ -4,6 +4,20 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+function getConfiguredAppOrigin(requestOrigin: string) {
+  const configuredUrl = process.env.APP_BASE_URL?.trim().replace(/^["']|["']$/g, "");
+
+  if (!configuredUrl) {
+    return requestOrigin;
+  }
+
+  try {
+    return new URL(configuredUrl).origin;
+  } catch {
+    return requestOrigin;
+  }
+}
+
 function isAuthorized(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
 
@@ -26,9 +40,7 @@ function isAuthorized(request: Request) {
   }
 
   const requestOrigin = new URL(request.url).origin;
-  const appOrigin = process.env.APP_BASE_URL
-    ? new URL(process.env.APP_BASE_URL).origin
-    : requestOrigin;
+  const appOrigin = getConfiguredAppOrigin(requestOrigin);
 
   return origin === requestOrigin || origin === appOrigin;
 }
