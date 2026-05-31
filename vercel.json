@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/jobs/process?limit=2",
-      "schedule": "*/10 * * * *"
+      "path": "/api/jobs/process?limit=10",
+      "schedule": "0 6 * * *"
     }
   ]
 }
