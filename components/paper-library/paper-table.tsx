@@ -36,12 +36,12 @@ export function PaperTable({
 }: PaperTableProps) {
   return (
     <div className="grid gap-3">
-      <div className="hidden grid-cols-[minmax(0,1fr)_11rem_12rem_8rem_13rem] gap-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--desk-muted)] lg:grid">
+      <div className="hidden grid-cols-[minmax(0,1fr)_11rem_12rem_8rem_10rem] gap-3 px-4 text-xs font-semibold uppercase tracking-wide text-[var(--desk-muted)] lg:grid">
         <span>Paper</span>
         <span>Status</span>
         <span>Verdict</span>
         <span>Added</span>
-        <span>Actions</span>
+        <span>{isAdmin ? "Actions" : "Source"}</span>
       </div>
 
       {papers.map((paper) => {
@@ -54,7 +54,7 @@ export function PaperTable({
             key={paper.id}
             role="button"
             tabIndex={0}
-            className={`grid cursor-pointer gap-4 rounded-lg border bg-[var(--desk-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--desk-warm)] hover:shadow-md lg:grid-cols-[minmax(0,1fr)_11rem_12rem_8rem_13rem] lg:items-center ${
+            className={`grid cursor-pointer gap-4 rounded-lg border bg-[var(--desk-surface)] p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--desk-warm)] hover:shadow-md lg:grid-cols-[minmax(0,1fr)_11rem_12rem_8rem_10rem] lg:items-center ${
               isSelected
                 ? "border-[var(--desk-accent)] ring-2 ring-[var(--desk-accent)]/20"
                 : "border-[var(--desk-border)]"
@@ -122,17 +122,18 @@ export function PaperTable({
               {formatDate(paper.created_at)}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectPaper(paper.id);
-                }}
-                className="min-h-9 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface-2)] px-3 text-sm font-medium text-[var(--desk-ink)] transition hover:border-[var(--desk-accent)]"
-              >
-                Open
-              </button>
+            <div
+              className={
+                isAdmin
+                  ? "flex flex-wrap items-center gap-2"
+                  : "hidden flex-wrap items-center gap-2 lg:flex"
+              }
+            >
+              {!isAdmin ? (
+                <span className="text-sm font-medium text-[var(--desk-accent)]">
+                  arXiv
+                </span>
+              ) : null}
               {isAdmin ? (
                 <button
                   type="button"

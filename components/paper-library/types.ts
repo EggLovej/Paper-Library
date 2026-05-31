@@ -57,5 +57,13 @@ export type PapersState =
   | { status: "error"; papers: Paper[]; message: string };
 
 export type ComplexityMode = "normal" | "easy" | "caveman";
-export type ViewMode = "inbox" | "all" | "active" | "failed";
+export type ViewMode =
+  | "inbox"
+  | "all"
+  | "active"
+  | "failed"
+  | "reading_stack"
+  | "toss_pile"
+  | "authors"
+  | "models";
 export type RatingFilter = "any" | "unrated" | string;

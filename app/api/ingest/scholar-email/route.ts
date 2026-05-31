@@ -1,4 +1,5 @@
 import { extractScholarInboxPaperUrls } from "@/lib/scholar-email";
+import { processPaperProcessingJobs } from "@/lib/jobs/paper-processing-jobs";
 import { submitPaperUrl } from "@/lib/papers/submit-paper";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -64,6 +65,17 @@ function parseDate(value: string | null) {
   }
 
   return parsed.toISOString();
+}
+
+function getAutoProcessLimit() {
+  const rawLimit = process.env.EMAIL_INGEST_AUTO_PROCESS_LIMIT ?? "1";
+  const parsedLimit = Number(rawLimit);
+
+  if (!Number.isInteger(parsedLimit)) {
+    return 1;
+  }
+
+  return Math.min(Math.max(parsedLimit, 0), 3);
 }
 
 async function updateMessageStatus({
@@ -196,14 +208,39 @@ export async function POST(request: Request) {
       paperUrls,
     });
 
+    const queuedCount = results.filter(
+      (result) =>
+        result.status === "accepted" || result.status === "already_exists",
+    ).length;
+    const autoProcessLimit = getAutoProcessLimit();
+    let processingResults: Awaited<
+      ReturnType<typeof processPaperProcessingJobs>
+    > = [];
+    let processingError: string | null = null;
+
+    if (autoProcessLimit > 0) {
+      try {
+        processingResults = await processPaperProcessingJobs(
+          supabase,
+          autoProcessLimit,
+        );
+      } catch (error) {
+        processingError =
+          error instanceof Error
+            ? error.message
+            : "The queued papers could not be summarized automatically.";
+      }
+    }
+
     return Response.json({
       status: "completed",
       messageId,
       paperUrlsFound: paperUrls.length,
-      papersQueued: results.filter(
-        (result) =>
-          result.status === "accepted" || result.status === "already_exists",
-      ).length,
+      papersQueued: queuedCount,
+      autoProcessLimit,
+      papersProcessed: processingResults.length,
+      processingResults,
+      processingError,
       results,
     });
   } catch (error) {
