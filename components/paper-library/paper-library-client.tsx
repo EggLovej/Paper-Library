@@ -39,6 +39,10 @@ export function PaperLibraryClient() {
     status: "loading",
     papers: [],
   });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [isAuthBusy, setIsAuthBusy] = useState(false);
   const autoProcessTimeoutRef = useRef<number | null>(null);
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [busyPaperIds, setBusyPaperIds] = useState<Set<string>>(new Set());
@@ -92,6 +96,14 @@ export function PaperLibraryClient() {
 
   const runProcessingQueue = useCallback(
     async (options?: { limit?: number; silent?: boolean }) => {
+      if (!isAdmin) {
+        setProcessState({
+          status: "error",
+          message: "Admin login required.",
+        });
+        return;
+      }
+
       if (processState.status === "running") {
         return;
       }
@@ -141,7 +153,7 @@ export function PaperLibraryClient() {
         });
       }
     },
-    [loadPapers, processState.status],
+    [isAdmin, loadPapers, processState.status],
   );
 
   const scheduleProcessingQueue = useCallback(() => {
@@ -154,6 +166,31 @@ export function PaperLibraryClient() {
       void runProcessingQueue({ limit: 1, silent: true });
     }, AUTO_PROCESS_DELAY_MS);
   }, [runProcessingQueue]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadSession() {
+      try {
+        const response = await fetch("/api/auth/session");
+        const result = (await response.json()) as { isAdmin?: boolean };
+
+        if (!ignore) {
+          setIsAdmin(Boolean(response.ok && result.isAdmin));
+        }
+      } catch {
+        if (!ignore) {
+          setIsAdmin(false);
+        }
+      }
+    }
+
+    void loadSession();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -242,6 +279,14 @@ export function PaperLibraryClient() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!isAdmin) {
+      setSubmitState({
+        status: "error",
+        message: "Admin login required.",
+      });
+      return;
+    }
+
     const trimmedUrl = url.trim();
     setSubmitState({ status: "submitting" });
 
@@ -304,6 +349,10 @@ export function PaperLibraryClient() {
   }
 
   async function updatePaperRating(paperId: string, rating: string) {
+    if (!isAdmin) {
+      return;
+    }
+
     setPaperBusy(paperId, true);
 
     try {
@@ -348,6 +397,10 @@ export function PaperLibraryClient() {
   }
 
   async function deletePaper(paperId: string, title: string) {
+    if (!isAdmin) {
+      return;
+    }
+
     const shouldDelete = window.confirm(`Delete "${title}" from the library?`);
 
     if (!shouldDelete) {
@@ -391,6 +444,10 @@ export function PaperLibraryClient() {
   }
 
   async function retryPaper(paperId: string) {
+    if (!isAdmin) {
+      return;
+    }
+
     setPaperBusy(paperId, true);
 
     try {
@@ -434,6 +491,10 @@ export function PaperLibraryClient() {
   }
 
   async function reprocessPaper(paperId: string) {
+    if (!isAdmin) {
+      return;
+    }
+
     setPaperBusy(paperId, true);
 
     try {
@@ -485,6 +546,51 @@ export function PaperLibraryClient() {
         setIsThemeChanging(false);
       });
     });
+  }
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsAuthBusy(true);
+    setAuthMessage(null);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ password: adminPassword }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        isAdmin?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok || !result.isAdmin) {
+        setAuthMessage(result.error ?? "Login failed.");
+        return;
+      }
+
+      setIsAdmin(true);
+      setAdminPassword("");
+      setAuthMessage(null);
+    } catch {
+      setAuthMessage("Could not reach the login endpoint.");
+    } finally {
+      setIsAuthBusy(false);
+    }
+  }
+
+  async function handleLogout() {
+    setIsAuthBusy(true);
+
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      setIsAdmin(false);
+      setAuthMessage(null);
+      setIsAuthBusy(false);
+    }
   }
 
   const paperCounts = useMemo(() => {
@@ -562,46 +668,58 @@ export function PaperLibraryClient() {
           </button>
         </header>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <label
-            htmlFor="arxiv-url"
-            className="text-sm font-medium text-zinc-800 dark:text-zinc-200"
+        <AdminPanel
+          isAdmin={isAdmin}
+          isAuthBusy={isAuthBusy}
+          password={adminPassword}
+          authMessage={authMessage}
+          onPasswordChange={setAdminPassword}
+          onLogin={handleLogin}
+          onLogout={() => void handleLogout()}
+        />
+
+        {isAdmin ? (
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
           >
-            Paper URL
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              id="arxiv-url"
-              name="arxiv-url"
-              type="url"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://arxiv.org/abs/2401.12345 or Scholar Inbox link"
-              className="min-h-12 flex-1 rounded-md border border-zinc-300 bg-white px-4 text-base text-zinc-950 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:ring-teal-950"
-              required
-            />
-            <button
-              type="submit"
-              disabled={submitState.status === "submitting"}
-              className="min-h-12 rounded-md bg-zinc-950 px-5 text-base font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-teal-600 dark:hover:bg-teal-500 dark:disabled:bg-zinc-700"
+            <label
+              htmlFor="arxiv-url"
+              className="text-sm font-medium text-zinc-800 dark:text-zinc-200"
             >
-              {submitState.status === "submitting" ? "Submitting" : "Submit"}
-            </button>
-          </div>
-          {submitState.status === "success" ? (
-            <p className="rounded-md bg-teal-50 px-4 py-3 text-sm text-teal-800 dark:bg-teal-950 dark:text-teal-200">
-              {submitState.message}
-            </p>
-          ) : null}
-          {submitState.status === "error" ? (
-            <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
-              {submitState.message}
-            </p>
-          ) : null}
-        </form>
+              Paper URL
+            </label>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                id="arxiv-url"
+                name="arxiv-url"
+                type="url"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://arxiv.org/abs/2401.12345 or Scholar Inbox link"
+                className="min-h-12 flex-1 rounded-md border border-zinc-300 bg-white px-4 text-base text-zinc-950 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:ring-teal-950"
+                required
+              />
+              <button
+                type="submit"
+                disabled={submitState.status === "submitting"}
+                className="min-h-12 rounded-md bg-zinc-950 px-5 text-base font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-teal-600 dark:hover:bg-teal-500 dark:disabled:bg-zinc-700"
+              >
+                {submitState.status === "submitting" ? "Submitting" : "Submit"}
+              </button>
+            </div>
+            {submitState.status === "success" ? (
+              <p className="rounded-md bg-teal-50 px-4 py-3 text-sm text-teal-800 dark:bg-teal-950 dark:text-teal-200">
+                {submitState.message}
+              </p>
+            ) : null}
+            {submitState.status === "error" ? (
+              <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+                {submitState.message}
+              </p>
+            ) : null}
+          </form>
+        ) : null}
 
         <section className="flex flex-col gap-4">
           <div className="flex flex-col gap-4">
@@ -683,16 +801,20 @@ export function PaperLibraryClient() {
                     Reset
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  disabled={processState.status === "running"}
-                  onClick={() =>
-                    void runProcessingQueue({ limit: 2, silent: false })
-                  }
-                  className="min-h-10 rounded-md border border-teal-200 bg-teal-50 px-4 text-sm font-medium text-teal-800 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-900 dark:bg-teal-950 dark:text-teal-200 dark:hover:bg-teal-900"
-                >
-                  {processState.status === "running" ? "Processing" : "Process"}
-                </button>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    disabled={processState.status === "running"}
+                    onClick={() =>
+                      void runProcessingQueue({ limit: 2, silent: false })
+                    }
+                    className="min-h-10 rounded-md border border-teal-200 bg-teal-50 px-4 text-sm font-medium text-teal-800 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-900 dark:bg-teal-950 dark:text-teal-200 dark:hover:bg-teal-900"
+                  >
+                    {processState.status === "running"
+                      ? "Processing"
+                      : "Process"}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void loadPapers()}
@@ -712,6 +834,7 @@ export function PaperLibraryClient() {
           ) : null}
 
           <PaperTable
+            isAdmin={isAdmin}
             papers={visiblePapers}
             totalPaperCount={papersState.papers.length}
             selectedPaperId={selectedPaperId}
@@ -729,6 +852,7 @@ export function PaperLibraryClient() {
 
       {selectedPaper ? (
         <PaperDetailPanel
+          isAdmin={isAdmin}
           key={selectedPaper.id}
           paper={selectedPaper}
           isBusy={busyPaperIds.has(selectedPaper.id)}
@@ -744,6 +868,74 @@ export function PaperLibraryClient() {
         />
       ) : null}
     </div>
+  );
+}
+
+function AdminPanel({
+  isAdmin,
+  isAuthBusy,
+  password,
+  authMessage,
+  onPasswordChange,
+  onLogin,
+  onLogout,
+}: {
+  isAdmin: boolean;
+  isAuthBusy: boolean;
+  password: string;
+  authMessage: string | null;
+  onPasswordChange: (password: string) => void;
+  onLogin: (event: FormEvent<HTMLFormElement>) => void;
+  onLogout: () => void;
+}) {
+  if (isAdmin) {
+    return (
+      <div className="flex flex-col gap-3 rounded-lg border border-teal-200 bg-teal-50 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-teal-900 dark:bg-teal-950">
+        <p className="text-sm font-medium text-teal-800 dark:text-teal-200">
+          Admin mode
+        </p>
+        <button
+          type="button"
+          disabled={isAuthBusy}
+          onClick={onLogout}
+          className="min-h-10 rounded-md border border-teal-200 bg-white px-4 text-sm font-medium text-teal-800 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-800 dark:bg-zinc-950 dark:text-teal-200 dark:hover:bg-teal-900"
+        >
+          Log out
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={onLogin}
+      className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center dark:border-zinc-800 dark:bg-zinc-900"
+    >
+      <label
+        htmlFor="admin-password"
+        className="text-sm font-medium text-zinc-800 dark:text-zinc-200"
+      >
+        Admin
+      </label>
+      <input
+        id="admin-password"
+        type="password"
+        value={password}
+        onChange={(event) => onPasswordChange(event.target.value)}
+        placeholder="Password"
+        className="min-h-10 flex-1 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:ring-teal-950"
+      />
+      <button
+        type="submit"
+        disabled={isAuthBusy}
+        className="min-h-10 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-teal-600 dark:hover:bg-teal-500 dark:disabled:bg-zinc-700"
+      >
+        {isAuthBusy ? "Logging in" : "Log in"}
+      </button>
+      {authMessage ? (
+        <p className="text-sm text-red-700 dark:text-red-300">{authMessage}</p>
+      ) : null}
+    </form>
   );
 }
 

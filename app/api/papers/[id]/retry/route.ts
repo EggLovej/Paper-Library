@@ -1,4 +1,5 @@
 import { enqueuePaperProcessingJob } from "@/lib/jobs/paper-processing-jobs";
+import { isAdminRequest, unauthorizedResponse } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -34,9 +35,13 @@ function missingSupabaseResponse() {
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: RouteContext<"/api/papers/[id]/retry">,
 ) {
+  if (!isAdminRequest(request)) {
+    return unauthorizedResponse();
+  }
+
   const { id } = await context.params;
   const supabase = createSupabaseServerClient();
 

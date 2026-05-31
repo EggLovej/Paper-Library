@@ -1,5 +1,7 @@
 import {
   formatDate,
+  formatLabel,
+  getRatingClasses,
   getPaperTitle,
 } from "./paper-ui";
 import { RatingPicker } from "./rating-picker";
@@ -7,6 +9,7 @@ import { PaperStatusSummary } from "./status-pill";
 import type { Paper } from "./types";
 
 type PaperTableProps = {
+  isAdmin: boolean;
   papers: Paper[];
   totalPaperCount: number;
   selectedPaperId: string | null;
@@ -19,6 +22,7 @@ type PaperTableProps = {
 };
 
 export function PaperTable({
+  isAdmin,
   papers,
   totalPaperCount,
   selectedPaperId,
@@ -75,12 +79,22 @@ export function PaperTable({
                     <PaperStatusSummary paper={paper} />
                   </td>
                   <td className="px-4 py-4">
-                    <RatingPicker
-                      value={paper.rating}
-                      disabled={isBusy}
-                      label={`Rating for ${displayTitle}`}
-                      onChange={(rating) => onRatingChange(paper.id, rating)}
-                    />
+                    {isAdmin ? (
+                      <RatingPicker
+                        value={paper.rating}
+                        disabled={isBusy}
+                        label={`Rating for ${displayTitle}`}
+                        onChange={(rating) => onRatingChange(paper.id, rating)}
+                      />
+                    ) : (
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${getRatingClasses(
+                          paper.rating,
+                        )}`}
+                      >
+                        {formatLabel(paper.rating)}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-4 text-zinc-700 dark:text-zinc-300">
                     {formatDate(paper.created_at)}
@@ -108,18 +122,20 @@ export function PaperTable({
                       >
                         View
                       </button>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onDelete(paper.id, displayTitle);
-                        }}
-                        className="min-h-9 rounded-md border border-red-200 bg-white px-3 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-red-300 dark:border-red-900 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950"
-                      >
-                        Delete
-                      </button>
-                      {paper.processing_status === "failed" ? (
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onDelete(paper.id, displayTitle);
+                          }}
+                          className="min-h-9 rounded-md border border-red-200 bg-white px-3 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-red-300 dark:border-red-900 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                      {isAdmin && paper.processing_status === "failed" ? (
                         <button
                           type="button"
                           disabled={isBusy}
@@ -132,7 +148,7 @@ export function PaperTable({
                           Retry
                         </button>
                       ) : null}
-                      {paper.processing_status === "completed" ? (
+                      {isAdmin && paper.processing_status === "completed" ? (
                         <button
                           type="button"
                           disabled={isBusy}

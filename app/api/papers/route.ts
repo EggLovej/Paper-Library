@@ -1,4 +1,5 @@
 import { submitPaperUrl } from "@/lib/papers/submit-paper";
+import { isAdminRequest, unauthorizedResponse } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -27,7 +28,38 @@ type PaperProcessingJobRow = {
   updated_at: string;
 };
 
-export async function GET() {
+const PUBLIC_PAPER_COLUMNS = [
+  "id",
+  "arxiv_id",
+  "url",
+  "title",
+  "authors",
+  "abstract",
+  "summary_overview",
+  "summary_overview_easy",
+  "summary_overview_caveman",
+  "summary_contributions",
+  "summary_contributions_easy",
+  "summary_contributions_caveman",
+  "summary_prior_work_delta",
+  "summary_prior_work_delta_easy",
+  "summary_prior_work_delta_caveman",
+  "summary_project_ideas",
+  "rating",
+  "processing_status",
+  "processing_model",
+  "created_at",
+].join(", ");
+
+const ADMIN_PAPER_COLUMNS = `${PUBLIC_PAPER_COLUMNS}, processing_error, source, source_paper_id, source_message_id, report_email_sent_at, report_email_error`;
+
+const PUBLIC_JOB_COLUMNS =
+  "id, paper_id, status, attempts, max_attempts, run_after, locked_at, completed_at, created_at, updated_at";
+
+const ADMIN_JOB_COLUMNS = `${PUBLIC_JOB_COLUMNS}, last_error`;
+
+export async function GET(request: Request) {
+  const isAdmin = isAdminRequest(request);
   const supabase = createSupabaseServerClient();
 
   if (!supabase) {
@@ -42,7 +74,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("papers")
-    .select("*")
+    .select(isAdmin ? ADMIN_PAPER_COLUMNS : PUBLIC_PAPER_COLUMNS)
     .order("created_at", { ascending: false })
     .returns<PaperRow[]>();
 
@@ -63,9 +95,7 @@ export async function GET() {
   if (paperIds.length > 0) {
     const { data: jobs, error: jobsError } = await supabase
       .from("paper_processing_jobs")
-      .select(
-        "id, paper_id, status, attempts, max_attempts, run_after, locked_at, completed_at, last_error, created_at, updated_at",
-      )
+      .select(isAdmin ? ADMIN_JOB_COLUMNS : PUBLIC_JOB_COLUMNS)
       .in("paper_id", paperIds)
       .order("created_at", { ascending: false })
       .returns<PaperProcessingJobRow[]>();
@@ -96,6 +126,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!isAdminRequest(request)) {
+    return unauthorizedResponse();
+  }
+
   let body: PaperRequestBody;
 
   try {

@@ -30,11 +30,3 @@ a[href] {
 .theme-changing * {
   transition: none !important;
 }
-
-
-.base-container {
-  max-width: 85vw;
-  margin: 0 auto;
-  padding: clamp(0.2rem, 1.5vw, 1rem);
-  gap: 1rem;
-}

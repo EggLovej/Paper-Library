@@ -1,4 +1,5 @@
 import { isPaperRating } from "@/lib/paper-ratings";
+import { isAdminRequest, unauthorizedResponse } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -21,6 +22,10 @@ export async function PATCH(
   request: Request,
   context: RouteContext<"/api/papers/[id]">,
 ) {
+  if (!isAdminRequest(request)) {
+    return unauthorizedResponse();
+  }
+
   const { id } = await context.params;
   const supabase = createSupabaseServerClient();
 
@@ -75,9 +80,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: RouteContext<"/api/papers/[id]">,
 ) {
+  if (!isAdminRequest(request)) {
+    return unauthorizedResponse();
+  }
+
   const { id } = await context.params;
   const supabase = createSupabaseServerClient();
 

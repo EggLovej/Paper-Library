@@ -1,22 +1,9 @@
 import { processPaperProcessingJobs } from "@/lib/jobs/paper-processing-jobs";
+import { isAdminRequest } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-function getConfiguredAppOrigin(requestOrigin: string) {
-  const configuredUrl = process.env.APP_BASE_URL?.trim().replace(/^["']|["']$/g, "");
-
-  if (!configuredUrl) {
-    return requestOrigin;
-  }
-
-  try {
-    return new URL(configuredUrl).origin;
-  } catch {
-    return requestOrigin;
-  }
-}
 
 function isAuthorized(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -29,20 +16,7 @@ function isAuthorized(request: Request) {
     return true;
   }
 
-  if (request.method !== "POST") {
-    return false;
-  }
-
-  const origin = request.headers.get("origin");
-
-  if (!origin) {
-    return false;
-  }
-
-  const requestOrigin = new URL(request.url).origin;
-  const appOrigin = getConfiguredAppOrigin(requestOrigin);
-
-  return origin === requestOrigin || origin === appOrigin;
+  return isAdminRequest(request);
 }
 
 function getLimit(request: Request) {

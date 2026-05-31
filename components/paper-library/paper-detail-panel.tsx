@@ -17,6 +17,7 @@ import { StatusPill } from "./status-pill";
 import type { ComplexityMode, Paper } from "./types";
 
 type PaperDetailPanelProps = {
+  isAdmin: boolean;
   paper: Paper;
   isBusy: boolean;
   onClose: () => void;
@@ -27,6 +28,7 @@ type PaperDetailPanelProps = {
 };
 
 export function PaperDetailPanel({
+  isAdmin,
   paper,
   isBusy,
   onClose,
@@ -119,15 +121,17 @@ export function PaperDetailPanel({
             </div>
 
             <div className="flex flex-col gap-3 border-t border-zinc-200 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
-              <div className="flex flex-col gap-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                <span>Rating</span>
-                <RatingPicker
-                  value={paper.rating}
-                  disabled={isBusy}
-                  label={`Rating for ${title}`}
-                  onChange={onRatingChange}
-                />
-              </div>
+              {isAdmin ? (
+                <div className="flex flex-col gap-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  <span>Rating</span>
+                  <RatingPicker
+                    value={paper.rating}
+                    disabled={isBusy}
+                    label={`Rating for ${title}`}
+                    onChange={onRatingChange}
+                  />
+                </div>
+              ) : null}
 
               <div className="flex flex-wrap gap-2">
                 <a
@@ -138,15 +142,17 @@ export function PaperDetailPanel({
                 >
                   Open PDF
                 </a>
-                <button
-                  type="button"
-                  disabled={isBusy}
-                  onClick={onDelete}
-                  className="min-h-10 rounded-md border border-red-200 bg-white px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-red-300 dark:border-red-900 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950"
-                >
-                  Delete
-                </button>
-                {paper.processing_status === "failed" ? (
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={onDelete}
+                    className="min-h-10 rounded-md border border-red-200 bg-white px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:text-red-300 dark:border-red-900 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950"
+                  >
+                    Delete
+                  </button>
+                ) : null}
+                {isAdmin && paper.processing_status === "failed" ? (
                   <button
                     type="button"
                     disabled={isBusy}
@@ -156,7 +162,7 @@ export function PaperDetailPanel({
                     Retry
                   </button>
                 ) : null}
-                {paper.processing_status === "completed" ? (
+                {isAdmin && paper.processing_status === "completed" ? (
                   <button
                     type="button"
                     disabled={isBusy}
