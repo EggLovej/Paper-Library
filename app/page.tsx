@@ -5,12 +5,19 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 type SubmitState =
   | { status: "idle" }
   | { status: "submitting" }
+  | { status: "success"; message: string }
+  | { status: "error"; message: string };
+
+type ProcessState =
+  | { status: "idle" }
+  | { status: "running"; message: string }
   | { status: "success"; message: string }
   | { status: "error"; message: string };
 
@@ -77,6 +84,8 @@ const COMPLEXITY_OPTIONS = [
 type ComplexityMode = (typeof COMPLEXITY_OPTIONS)[number]["value"];
 type ViewMode = "inbox" | "all" | "active" | "failed";
 type RatingFilter = "any" | "unrated" | string;
+
+const AUTO_PROCESS_DELAY_MS = 2500;
 
 function formatDate(value?: string | null) {
   if (!value) {
@@ -250,10 +259,14 @@ export default function Home() {
   const [submitState, setSubmitState] = useState<SubmitState>({
     status: "idle",
   });
+  const [processState, setProcessState] = useState<ProcessState>({
+    status: "idle",
+  });
   const [papersState, setPapersState] = useState<PapersState>({
     status: "loading",
     papers: [],
   });
+  const autoProcessTimeoutRef = useRef<number | null>(null);
   const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
   const [busyPaperIds, setBusyPaperIds] = useState<Set<string>>(new Set());
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -301,6 +314,71 @@ export default function Home() {
     setPapersState(await fetchPapers());
   }, [fetchPapers]);
 
+  const runProcessingQueue = useCallback(
+    async (options?: { limit?: number; silent?: boolean }) => {
+      if (processState.status === "running") {
+        return;
+      }
+
+      setProcessState({
+        status: "running",
+        message: options?.silent
+          ? "Processing the queued paper..."
+          : "Processing queued papers...",
+      });
+
+      try {
+        const response = await fetch(
+          `/api/jobs/process?limit=${options?.limit ?? 1}`,
+          {
+            method: "POST",
+          },
+        );
+        const result = (await response.json().catch(() => ({}))) as {
+          processed?: number;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          setProcessState({
+            status: "error",
+            message: result.error ?? "The processing queue could not be run.",
+          });
+          return;
+        }
+
+        const processed = result.processed ?? 0;
+        setProcessState({
+          status: "success",
+          message:
+            processed > 0
+              ? `Processed ${processed} queued paper${
+                  processed === 1 ? "" : "s"
+                }.`
+              : "No ready papers in the queue.",
+        });
+        await loadPapers({ silent: true });
+      } catch {
+        setProcessState({
+          status: "error",
+          message: "Could not reach the job processor.",
+        });
+      }
+    },
+    [loadPapers, processState.status],
+  );
+
+  const scheduleProcessingQueue = useCallback(() => {
+    if (autoProcessTimeoutRef.current !== null) {
+      window.clearTimeout(autoProcessTimeoutRef.current);
+    }
+
+    autoProcessTimeoutRef.current = window.setTimeout(() => {
+      autoProcessTimeoutRef.current = null;
+      void runProcessingQueue({ limit: 1, silent: true });
+    }, AUTO_PROCESS_DELAY_MS);
+  }, [runProcessingQueue]);
+
   useEffect(() => {
     let ignore = false;
 
@@ -314,6 +392,14 @@ export default function Home() {
       ignore = true;
     };
   }, [fetchPapers]);
+
+  useEffect(() => {
+    return () => {
+      if (autoProcessTimeoutRef.current !== null) {
+        window.clearTimeout(autoProcessTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const hasActiveProcessing = papersState.papers.some(
@@ -367,6 +453,20 @@ export default function Home() {
     };
   }, [submitState]);
 
+  useEffect(() => {
+    if (processState.status !== "success") {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setProcessState({ status: "idle" });
+    }, 7000);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [processState]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -401,10 +501,14 @@ export default function Home() {
         message:
           result.status === "already_exists"
             ? `arXiv paper ${result.arxivId} is already in the library.`
-            : `Accepted arXiv paper ${result.arxivId} for processing.`,
+            : `Accepted arXiv paper ${result.arxivId} for processing. Processing will start shortly.`,
       });
       setUrl("");
       await loadPapers();
+
+      if (result.status === "accepted") {
+        scheduleProcessingQueue();
+      }
     } catch {
       setSubmitState({
         status: "error",
@@ -803,6 +907,16 @@ export default function Home() {
                 ) : null}
                 <button
                   type="button"
+                  disabled={processState.status === "running"}
+                  onClick={() =>
+                    void runProcessingQueue({ limit: 2, silent: false })
+                  }
+                  className="min-h-10 rounded-md border border-teal-200 bg-teal-50 px-4 text-sm font-medium text-teal-800 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-teal-900 dark:bg-teal-950 dark:text-teal-200 dark:hover:bg-teal-900"
+                >
+                  {processState.status === "running" ? "Processing" : "Process"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => void loadPapers()}
                   className="min-h-10 rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                 >
@@ -810,6 +924,21 @@ export default function Home() {
                 </button>
               </div>
             </div>
+            {processState.status === "running" ? (
+              <p className="rounded-md bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+                {processState.message}
+              </p>
+            ) : null}
+            {processState.status === "success" ? (
+              <p className="rounded-md bg-teal-50 px-4 py-3 text-sm text-teal-800 dark:bg-teal-950 dark:text-teal-200">
+                {processState.message}
+              </p>
+            ) : null}
+            {processState.status === "error" ? (
+              <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+                {processState.message}
+              </p>
+            ) : null}
           </div>
 
           {papersState.status === "error" ? (

@@ -11,7 +11,26 @@ function isAuthorized(request: Request) {
     return true;
   }
 
-  return request.headers.get("authorization") === `Bearer ${cronSecret}`;
+  if (cronSecret && request.headers.get("authorization") === `Bearer ${cronSecret}`) {
+    return true;
+  }
+
+  if (request.method !== "POST") {
+    return false;
+  }
+
+  const origin = request.headers.get("origin");
+
+  if (!origin) {
+    return false;
+  }
+
+  const requestOrigin = new URL(request.url).origin;
+  const appOrigin = process.env.APP_BASE_URL
+    ? new URL(process.env.APP_BASE_URL).origin
+    : requestOrigin;
+
+  return origin === requestOrigin || origin === appOrigin;
 }
 
 function getLimit(request: Request) {
