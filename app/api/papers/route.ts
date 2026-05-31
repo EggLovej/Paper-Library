@@ -1,5 +1,6 @@
 import { submitPaperUrl } from "@/lib/papers/submit-paper";
-import { isAdminRequest, unauthorizedResponse } from "@/lib/auth/admin";
+import { logAdminAuditEvent } from "@/lib/auth/audit";
+import { isAdminRequest, requireAdminRequest } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -126,8 +127,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isAdminRequest(request)) {
-    return unauthorizedResponse();
+  const unauthorized = requireAdminRequest(request);
+
+  if (unauthorized) {
+    return unauthorized;
   }
 
   let body: PaperRequestBody;
@@ -166,6 +169,16 @@ export async function POST(request: Request) {
     if (result.status === "invalid_url") {
       return Response.json({ error: result.error }, { status: 400 });
     }
+
+    await logAdminAuditEvent(supabase, request, {
+      action: "paper_submitted",
+      resourceType: "paper",
+      resourceId: result.paperId,
+      metadata: {
+        arxivId: result.arxivId,
+        status: result.status,
+      },
+    });
 
     return Response.json(
       {

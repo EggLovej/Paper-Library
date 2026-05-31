@@ -1,6 +1,9 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-const ADMIN_COOKIE_NAME = "paper_library_admin";
+const ADMIN_COOKIE_NAME =
+  process.env.NODE_ENV === "production"
+    ? "__Host-paper_library_admin"
+    : "paper_library_admin";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 type AdminSessionPayload = {
@@ -32,6 +35,31 @@ function safeEqual(left: string, right: string) {
 
 function getAdminSessionSecret() {
   return process.env.ADMIN_SESSION_SECRET ?? process.env.AUTH_SECRET ?? null;
+}
+
+function cleanConfiguredUrl(value: string) {
+  return value.trim().replace(/^["']|["']$/g, "");
+}
+
+function getTrustedOrigins(request: Request) {
+  const requestOrigin = new URL(request.url).origin;
+  const configuredOrigins = [
+    process.env.APP_BASE_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(cleanConfiguredUrl)
+    .map((value) => {
+      try {
+        return new URL(value).origin;
+      } catch {
+        return null;
+      }
+    })
+    .filter((value): value is string => Boolean(value));
+
+  return new Set([requestOrigin, ...configuredOrigins]);
 }
 
 export function getAdminPassword() {
@@ -111,6 +139,32 @@ export function isAdminRequest(request: Request) {
   return verifyAdminSessionToken(getAdminCookieValue(request));
 }
 
+export function isTrustedOriginRequest(request: Request) {
+  const origin = request.headers.get("origin");
+
+  if (!origin) {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  return getTrustedOrigins(request).has(origin);
+}
+
+export function forbiddenOriginResponse() {
+  return Response.json({ error: "Untrusted request origin." }, { status: 403 });
+}
+
+export function requireAdminRequest(request: Request) {
+  if (!isTrustedOriginRequest(request)) {
+    return forbiddenOriginResponse();
+  }
+
+  if (!isAdminRequest(request)) {
+    return unauthorizedResponse();
+  }
+
+  return null;
+}
+
 export function unauthorizedResponse() {
   return Response.json({ error: "Admin login required." }, { status: 401 });
 }
@@ -120,7 +174,7 @@ export function createAdminCookie(token: string) {
     `${ADMIN_COOKIE_NAME}=${encodeURIComponent(token)}`,
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax",
+    "SameSite=Strict",
     `Max-Age=${SESSION_TTL_SECONDS}`,
     ...(process.env.NODE_ENV === "production" ? ["Secure"] : []),
   ].join("; ");
@@ -131,7 +185,7 @@ export function clearAdminCookie() {
     `${ADMIN_COOKIE_NAME}=`,
     "Path=/",
     "HttpOnly",
-    "SameSite=Lax",
+    "SameSite=Strict",
     "Max-Age=0",
     ...(process.env.NODE_ENV === "production" ? ["Secure"] : []),
   ].join("; ");

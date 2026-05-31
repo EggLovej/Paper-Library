@@ -1,5 +1,6 @@
 import { enqueuePaperProcessingJob } from "@/lib/jobs/paper-processing-jobs";
-import { isAdminRequest, unauthorizedResponse } from "@/lib/auth/admin";
+import { logAdminAuditEvent } from "@/lib/auth/audit";
+import { requireAdminRequest } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -38,8 +39,10 @@ export async function POST(
   request: Request,
   context: RouteContext<"/api/papers/[id]/reprocess">,
 ) {
-  if (!isAdminRequest(request)) {
-    return unauthorizedResponse();
+  const unauthorized = requireAdminRequest(request);
+
+  if (unauthorized) {
+    return unauthorized;
   }
 
   const { id } = await context.params;
@@ -124,6 +127,13 @@ export async function POST(
     )
     .eq("id", job.id)
     .maybeSingle<PaperProcessingJobRow>();
+
+  await logAdminAuditEvent(supabase, request, {
+    action: "paper_reprocess_queued",
+    resourceType: "paper",
+    resourceId: paper.id,
+    metadata: { jobId: job.id, arxivId: paper.arxiv_id },
+  });
 
   return Response.json(
     {

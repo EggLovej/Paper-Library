@@ -1,5 +1,6 @@
 import { processPaperProcessingJobs } from "@/lib/jobs/paper-processing-jobs";
-import { isAdminRequest } from "@/lib/auth/admin";
+import { logAdminAuditEvent } from "@/lib/auth/audit";
+import { isAdminRequest, isTrustedOriginRequest } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -16,7 +17,16 @@ function isAuthorized(request: Request) {
     return true;
   }
 
-  return isAdminRequest(request);
+  return isTrustedOriginRequest(request) && isAdminRequest(request);
+}
+
+function isBearerAuthorized(request: Request) {
+  const cronSecret = process.env.CRON_SECRET;
+
+  return (
+    Boolean(cronSecret) &&
+    request.headers.get("authorization") === `Bearer ${cronSecret}`
+  );
 }
 
 function getLimit(request: Request) {
@@ -62,6 +72,15 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  await logAdminAuditEvent(supabase, request, {
+    action: "processing_queue_run",
+    resourceType: "paper_processing_jobs",
+    metadata: {
+      processed: results.length,
+      mode: isBearerAuthorized(request) ? "bearer" : "admin",
+    },
+  });
 
   return Response.json({
     processed: results.length,
