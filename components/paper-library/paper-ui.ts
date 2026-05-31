@@ -1,0 +1,187 @@
+import type { ComplexityMode, Paper, PaperProcessingJob } from "./types";
+
+export const RATING_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "interested", label: "Interested" },
+  { value: "maybe", label: "Maybe" },
+  { value: "not_interested", label: "Not interested" },
+  { value: "read_later", label: "Read later" },
+];
+
+export const COMPLEXITY_OPTIONS: Array<{
+  value: ComplexityMode;
+  label: string;
+}> = [
+  { value: "normal", label: "Normal" },
+  { value: "easy", label: "Easy" },
+  { value: "caveman", label: "Caveman" },
+];
+
+export const AUTO_PROCESS_DELAY_MS = 2500;
+
+export function formatDate(value?: string | null) {
+  if (!value) {
+    return "Unknown";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+export function formatLabel(value?: string | null) {
+  if (!value) {
+    return "None";
+  }
+
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function getPaperTitle(paper: Paper) {
+  return paper.title || `arXiv ${paper.arxiv_id}`;
+}
+
+export function isInboxPaper(paper: Paper) {
+  return (
+    paper.processing_status === "failed" ||
+    (paper.processing_status === "completed" && !paper.rating)
+  );
+}
+
+export function isActivePaper(paper: Paper) {
+  return (
+    paper.processing_status === "pending" ||
+    paper.processing_status === "processing"
+  );
+}
+
+export function getStatusClasses(value?: string | null) {
+  switch (value) {
+    case "completed":
+      return "bg-teal-50 text-teal-800 ring-teal-200";
+    case "processing":
+      return "bg-sky-50 text-sky-800 ring-sky-200";
+    case "pending":
+      return "bg-amber-50 text-amber-800 ring-amber-200";
+    case "failed":
+      return "bg-red-50 text-red-700 ring-red-200";
+    default:
+      return "bg-zinc-100 text-zinc-700 ring-zinc-200";
+  }
+}
+
+export function getRatingClasses(value?: string | null) {
+  switch (value) {
+    case "interested":
+      return "bg-teal-50 text-teal-800 ring-teal-200";
+    case "maybe":
+      return "bg-amber-50 text-amber-800 ring-amber-200";
+    case "read_later":
+      return "bg-sky-50 text-sky-800 ring-sky-200";
+    case "not_interested":
+      return "bg-zinc-100 text-zinc-600 ring-zinc-200";
+    default:
+      return "bg-white text-zinc-600 ring-zinc-200";
+  }
+}
+
+export function getRatingSelectClasses(value?: string | null) {
+  switch (value) {
+    case "interested":
+      return "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-900 dark:bg-teal-950 dark:text-teal-200";
+    case "maybe":
+      return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200";
+    case "read_later":
+      return "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-200";
+    case "not_interested":
+      return "border-zinc-300 bg-zinc-100 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
+    default:
+      return "border-zinc-300 bg-white text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
+  }
+}
+
+export function formatModelName(value?: string | null) {
+  if (!value) {
+    return "Model unknown";
+  }
+
+  const knownModels: Record<string, string> = {
+    "gemini-2.5-flash": "Gemini 2.5 Flash",
+    "gemini-2.5-pro": "Gemini 2.5 Pro",
+    "gemini-1.5-flash": "Gemini 1.5 Flash",
+    "gemini-1.5-pro": "Gemini 1.5 Pro",
+  };
+
+  return (
+    knownModels[value] ??
+    value
+      .split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ")
+  );
+}
+
+export function getJobAttemptsLabel(job?: PaperProcessingJob | null) {
+  if (!job) {
+    return "No job";
+  }
+
+  return `Attempts ${job.attempts}/${job.max_attempts}`;
+}
+
+export function getJobSummaryLabel(paper: Paper) {
+  const job = paper.latest_job;
+
+  if (paper.processing_status === "pending") {
+    return "";
+  }
+
+  if (!job) {
+    return "No job";
+  }
+
+  return `${formatLabel(job.status)} · ${getJobAttemptsLabel(job)}`;
+}
+
+export function getDetailRetryLabel(paper: Paper) {
+  const job = paper.latest_job;
+
+  if (!job) {
+    return "No job";
+  }
+
+  if (paper.processing_status === "pending") {
+    return job.attempts > 0
+      ? `Retry ${job.attempts + 1} of ${job.max_attempts} scheduled`
+      : "First run scheduled";
+  }
+
+  return getJobAttemptsLabel(job);
+}
+
+export function getComplexityValue({
+  normal,
+  easy,
+  caveman,
+  mode,
+}: {
+  normal?: string | null;
+  easy?: string | null;
+  caveman?: string | null;
+  mode: ComplexityMode;
+}) {
+  if (mode === "easy") {
+    return easy || normal;
+  }
+
+  if (mode === "caveman") {
+    return caveman || normal;
+  }
+
+  return normal;
+}
