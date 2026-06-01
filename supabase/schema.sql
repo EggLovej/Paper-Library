@@ -62,6 +62,23 @@ create unique index if not exists paper_processing_jobs_active_paper_unique
 on paper_processing_jobs (paper_id)
 where status in ('pending', 'processing');
 
+create table if not exists saved_project_ideas (
+  id uuid primary key default gen_random_uuid(),
+  paper_id uuid not null references papers(id) on delete cascade,
+  idea_text text not null,
+  status text not null default 'saved'
+    check (status in ('saved', 'thinking', 'building', 'done', 'archived')),
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists saved_project_ideas_paper_text_unique
+on saved_project_ideas (paper_id, idea_text);
+
+create index if not exists saved_project_ideas_created_idx
+on saved_project_ideas (created_at desc);
+
 create table if not exists admin_login_attempts (
   id uuid primary key default gen_random_uuid(),
   identifier text not null,

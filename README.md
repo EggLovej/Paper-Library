@@ -13,6 +13,7 @@ ArXiv Sieve is a small research desk for turning Scholar Inbox emails and arXiv 
 - Queues papers in Supabase and processes them with retry/backoff.
 - Generates structured summaries: overview, contributions, prior-work delta, and project ideas.
 - Sends report emails with rating actions.
+- Saves promising project ideas back to their source papers.
 - Keeps the public library read-only while curator actions stay behind a passphrase cookie.
 - Adds author/model views with search, grid/list display, and lightweight ranking.
 

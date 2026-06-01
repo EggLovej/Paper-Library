@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 import { sendPaperReportEmail } from "./email/paper-report";
+import { formatModelName } from "./model-names";
 import type { SupabaseServerClient } from "./supabase/server";
 
 type PaperSummary = {
@@ -32,23 +33,6 @@ export function getGeminiApiKey() {
 
 export function getGeminiModel() {
   return process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL;
-}
-
-function formatModelName(value: string) {
-  const knownModels: Record<string, string> = {
-    "gemini-2.5-flash": "Gemini 2.5 Flash",
-    "gemini-2.5-pro": "Gemini 2.5 Pro",
-    "gemini-1.5-flash": "Gemini 1.5 Flash",
-    "gemini-1.5-pro": "Gemini 1.5 Pro",
-  };
-
-  return (
-    knownModels[value] ??
-    value
-      .split("-")
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ")
-  );
 }
 
 function parseJsonResponse(text?: string) {
@@ -247,7 +231,6 @@ export async function processPaper(
     await supabase
       .from("papers")
       .update({
-        processing_status: "failed",
         processing_error: message,
         updated_at: new Date().toISOString(),
       })

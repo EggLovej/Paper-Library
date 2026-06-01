@@ -1,4 +1,5 @@
 import type { ComplexityMode, Paper, PaperProcessingJob } from "./types";
+export { formatModelName } from "@/lib/model-names";
 
 export const RATING_OPTIONS = [
   { value: "", label: "No verdict" },
@@ -120,33 +121,12 @@ export function getRatingSelectClasses(value?: string | null) {
   }
 }
 
-export function formatModelName(value?: string | null) {
-  if (!value) {
-    return "Model unknown";
-  }
-
-  const knownModels: Record<string, string> = {
-    "gemini-2.5-flash": "Gemini 2.5 Flash",
-    "gemini-2.5-pro": "Gemini 2.5 Pro",
-    "gemini-1.5-flash": "Gemini 1.5 Flash",
-    "gemini-1.5-pro": "Gemini 1.5 Pro",
-  };
-
-  return (
-    knownModels[value] ??
-    value
-      .split("-")
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ")
-  );
-}
-
 export function getJobAttemptsLabel(job?: PaperProcessingJob | null) {
   if (!job) {
     return "No job";
   }
 
-  return `Attempts ${job.attempts}/${job.max_attempts}`;
+  return `Tries ${job.attempts}`;
 }
 
 export function getJobSummaryLabel(paper: Paper) {
@@ -172,7 +152,7 @@ export function getDetailRetryLabel(paper: Paper) {
 
   if (paper.processing_status === "pending") {
     return job.attempts > 0
-      ? `Retry ${job.attempts + 1} of ${job.max_attempts} scheduled`
+      ? `Try ${job.attempts + 1} scheduled`
       : "First run scheduled";
   }
 

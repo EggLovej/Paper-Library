@@ -5,6 +5,7 @@ import {
   isTrustedOriginRequest,
   isValidAdminPassword,
 } from "@/lib/auth/admin";
+import { invalidJsonResponse } from "@/lib/api/responses";
 import { logAdminAuditEvent } from "@/lib/auth/audit";
 import {
   isLoginRateLimited,
@@ -44,10 +45,7 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as LoginRequestBody;
   } catch {
-    return Response.json(
-      { error: "Request body must be valid JSON." },
-      { status: 400 },
-    );
+    return invalidJsonResponse();
   }
 
   if (typeof body.password !== "string" || body.password.length === 0) {

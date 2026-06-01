@@ -1,6 +1,11 @@
 import { extractScholarInboxPaperUrls } from "@/lib/scholar-email";
 import { processPaperProcessingJobs } from "@/lib/jobs/paper-processing-jobs";
 import { submitPaperUrl } from "@/lib/papers/submit-paper";
+import {
+  getNonEmptyString,
+  invalidJsonResponse,
+  missingSupabaseResponse,
+} from "@/lib/api/responses";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -19,16 +24,6 @@ type IngestedMessageRow = {
   status: string;
 };
 
-function missingSupabaseResponse() {
-  return Response.json(
-    {
-      error:
-        "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and a server-only Supabase key to .env.local.",
-    },
-    { status: 500 },
-  );
-}
-
 function isAuthorized(request: Request) {
   const secret = process.env.EMAIL_INGEST_SECRET ?? process.env.CRON_SECRET;
 
@@ -45,12 +40,6 @@ function isAuthorized(request: Request) {
     ?.replace(/^Bearer\s+/i, "");
 
   return bearerToken === secret;
-}
-
-function getString(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : null;
 }
 
 function parseDate(value: string | null) {
@@ -127,14 +116,11 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as ScholarEmailRequestBody;
   } catch {
-    return Response.json(
-      { error: "Request body must be valid JSON." },
-      { status: 400 },
-    );
+    return invalidJsonResponse();
   }
 
-  const messageId = getString(body.messageId);
-  const emailBody = getString(body.body);
+  const messageId = getNonEmptyString(body.messageId);
+  const emailBody = getNonEmptyString(body.body);
 
   if (!messageId || !emailBody) {
     return Response.json(
@@ -172,8 +158,8 @@ export async function POST(request: Request) {
       .from("gmail_ingested_messages")
       .insert({
         gmail_message_id: messageId,
-        subject: getString(body.subject),
-        received_at: parseDate(getString(body.date)),
+        subject: getNonEmptyString(body.subject),
+        received_at: parseDate(getNonEmptyString(body.date)),
         status: "processing",
       })
       .select("id, gmail_message_id, status")

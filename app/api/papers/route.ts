@@ -1,4 +1,5 @@
 import { submitPaperUrl } from "@/lib/papers/submit-paper";
+import { invalidJsonResponse, missingSupabaseResponse } from "@/lib/api/responses";
 import { logAdminAuditEvent } from "@/lib/auth/audit";
 import { isAdminRequest, requireAdminRequest } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -20,7 +21,6 @@ type PaperProcessingJobRow = {
   paper_id: string;
   status: string;
   attempts: number;
-  max_attempts: number;
   run_after: string | null;
   locked_at: string | null;
   completed_at: string | null;
@@ -55,7 +55,7 @@ const PUBLIC_PAPER_COLUMNS = [
 const ADMIN_PAPER_COLUMNS = `${PUBLIC_PAPER_COLUMNS}, processing_error, source, source_paper_id, source_message_id, report_email_sent_at, report_email_error`;
 
 const PUBLIC_JOB_COLUMNS =
-  "id, paper_id, status, attempts, max_attempts, run_after, locked_at, completed_at, created_at, updated_at";
+  "id, paper_id, status, attempts, run_after, locked_at, completed_at, created_at, updated_at";
 
 const ADMIN_JOB_COLUMNS = `${PUBLIC_JOB_COLUMNS}, last_error`;
 
@@ -64,13 +64,7 @@ export async function GET(request: Request) {
   const supabase = createSupabaseServerClient();
 
   if (!supabase) {
-    return Response.json(
-      {
-        error:
-          "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and a server-only Supabase key to .env.local.",
-      },
-      { status: 500 },
-    );
+    return missingSupabaseResponse();
   }
 
   const { data, error } = await supabase
@@ -138,10 +132,7 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as PaperRequestBody;
   } catch {
-    return Response.json(
-      { error: "Request body must be valid JSON." },
-      { status: 400 },
-    );
+    return invalidJsonResponse();
   }
 
   if (typeof body.url !== "string" || body.url.trim().length === 0) {
@@ -154,13 +145,7 @@ export async function POST(request: Request) {
   const supabase = createSupabaseServerClient();
 
   if (!supabase) {
-    return Response.json(
-      {
-        error:
-          "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and a server-only Supabase key to .env.local.",
-      },
-      { status: 500 },
-    );
+    return missingSupabaseResponse();
   }
 
   try {

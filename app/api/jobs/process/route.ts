@@ -1,4 +1,5 @@
 import { processPaperProcessingJobs } from "@/lib/jobs/paper-processing-jobs";
+import { missingSupabaseResponse } from "@/lib/api/responses";
 import { logAdminAuditEvent } from "@/lib/auth/audit";
 import { isAdminRequest, isTrustedOriginRequest } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -48,13 +49,7 @@ export async function POST(request: Request) {
   const supabase = createSupabaseServerClient();
 
   if (!supabase) {
-    return Response.json(
-      {
-        error:
-          "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and a server-only Supabase key to .env.local.",
-      },
-      { status: 500 },
-    );
+    return missingSupabaseResponse();
   }
 
   let results: Awaited<ReturnType<typeof processPaperProcessingJobs>>;

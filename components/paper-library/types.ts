@@ -37,12 +37,32 @@ export type Paper = {
   latest_job?: PaperProcessingJob | null;
 };
 
+export type SavedProjectIdea = {
+  id: string;
+  paper_id: string;
+  idea_text: string;
+  status: string;
+  notes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  paper?: Pick<
+    Paper,
+    | "id"
+    | "arxiv_id"
+    | "url"
+    | "title"
+    | "authors"
+    | "rating"
+    | "processing_status"
+    | "created_at"
+  > | null;
+};
+
 export type PaperProcessingJob = {
   id: string;
   paper_id: string;
   status: string;
   attempts: number;
-  max_attempts: number;
   run_after?: string | null;
   locked_at?: string | null;
   completed_at?: string | null;
@@ -57,6 +77,26 @@ export type PapersState =
   | { status: "error"; papers: Paper[]; message: string };
 
 export type ComplexityMode = "normal" | "easy" | "caveman";
+export type DirectoryItem = {
+  name: string;
+  count: number;
+  averageScore: number;
+  score: number;
+  signalScore: number;
+};
+export type DirectoryLayout = "grid" | "list";
+export type DirectorySort = "score" | "count" | "name";
+export type PaperCounts = {
+  all: number;
+  inbox: number;
+  active: number;
+  failed: number;
+  readingStack: number;
+  tossPile: number;
+  authors: number;
+  models: number;
+  projects: number;
+};
 export type ViewMode =
   | "inbox"
   | "all"
@@ -65,5 +105,6 @@ export type ViewMode =
   | "reading_stack"
   | "toss_pile"
   | "authors"
-  | "models";
+  | "models"
+  | "projects";
 export type RatingFilter = "any" | "unrated" | string;

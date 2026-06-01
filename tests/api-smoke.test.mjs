@@ -48,7 +48,7 @@ async function startTestServer() {
   const baseUrl = `http://127.0.0.1:${port}`;
   const child = spawn(
     process.platform === "win32" ? "npm.cmd" : "npm",
-    ["run", "dev", "--", "--hostname", "127.0.0.1", "--port", String(port)],
+    ["run", "start", "--", "--hostname", "127.0.0.1", "--port", String(port)],
     {
       cwd: process.cwd(),
       env: {
@@ -160,6 +160,23 @@ test("configured API routes fail clearly when Supabase is missing", async (t) =>
   const papersResponse = await fetch(`${server.baseUrl}/api/papers`);
   assert.equal(papersResponse.status, 500);
   assert.match((await papersResponse.json()).error, /Supabase is not configured/i);
+
+  const projectsResponse = await fetch(`${server.baseUrl}/api/projects`);
+  assert.equal(projectsResponse.status, 500);
+  assert.match(
+    (await projectsResponse.json()).error,
+    /Supabase is not configured/i,
+  );
+
+  const unauthenticatedProjectPost = await fetch(`${server.baseUrl}/api/projects`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Origin: server.baseUrl,
+    },
+    body: JSON.stringify({ paperId: "paper-id", ideaText: "Build something" }),
+  });
+  assert.equal(unauthenticatedProjectPost.status, 401);
 
   const ingestUnauthorized = await fetch(
     `${server.baseUrl}/api/ingest/scholar-email`,

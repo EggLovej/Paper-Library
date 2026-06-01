@@ -1,4 +1,5 @@
 import { isPaperRating } from "@/lib/paper-ratings";
+import { invalidJsonResponse, missingSupabaseResponse } from "@/lib/api/responses";
 import { logAdminAuditEvent } from "@/lib/auth/audit";
 import { requireAdminRequest } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -8,16 +9,6 @@ export const runtime = "nodejs";
 type RatingRequestBody = {
   rating?: unknown;
 };
-
-function missingSupabaseResponse() {
-  return Response.json(
-    {
-      error:
-        "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and a server-only Supabase key to .env.local.",
-    },
-    { status: 500 },
-  );
-}
 
 export async function PATCH(
   request: Request,
@@ -41,10 +32,7 @@ export async function PATCH(
   try {
     body = (await request.json()) as RatingRequestBody;
   } catch {
-    return Response.json(
-      { error: "Request body must be valid JSON." },
-      { status: 400 },
-    );
+    return invalidJsonResponse();
   }
 
   if (

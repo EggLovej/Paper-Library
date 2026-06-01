@@ -151,6 +151,19 @@ async function markJobFailed(
   if (error) {
     throw new Error(error.message);
   }
+
+  const { error: paperError } = await supabase
+    .from("papers")
+    .update({
+      processing_status: shouldRetry ? "pending" : "failed",
+      processing_error: errorMessage,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", job.paper_id);
+
+  if (paperError) {
+    throw new Error(paperError.message);
+  }
 }
 
 export async function processPaperProcessingJobs(

@@ -14,7 +14,7 @@ import {
 } from "./paper-ui";
 import { RatingPicker } from "./rating-picker";
 import { StatusPill } from "./status-pill";
-import type { ComplexityMode, Paper } from "./types";
+import type { ComplexityMode, Paper, SavedProjectIdea } from "./types";
 
 type DossierTab = "digest" | "contributions" | "prior" | "ideas" | "abstract" | "details";
 
@@ -27,8 +27,11 @@ type PaperDetailPanelProps = {
   onDelete: () => void;
   onRetry: () => void;
   onReprocess: () => void;
+  onSaveProjectIdea: (ideaText: string) => void;
   onPrevious: () => void;
   onNext: () => void;
+  savedProjectIdeas: SavedProjectIdea[];
+  busyProjectIdeaTexts: Set<string>;
   hasPrevious: boolean;
   hasNext: boolean;
 };
@@ -51,8 +54,11 @@ export function PaperDetailPanel({
   onDelete,
   onRetry,
   onReprocess,
+  onSaveProjectIdea,
   onPrevious,
   onNext,
+  savedProjectIdeas,
+  busyProjectIdeaTexts,
   hasPrevious,
   hasNext,
 }: PaperDetailPanelProps) {
@@ -250,7 +256,13 @@ export function PaperDetailPanel({
               <ReadingSection title="Prior Work" value={tabContent.prior} />
             ) : null}
             {activeTab === "ideas" ? (
-              <ProjectIdeas values={paper.summary_project_ideas} />
+              <ProjectIdeas
+                isAdmin={isAdmin}
+                values={paper.summary_project_ideas}
+                savedProjectIdeas={savedProjectIdeas}
+                busyProjectIdeaTexts={busyProjectIdeaTexts}
+                onSaveProjectIdea={onSaveProjectIdea}
+              />
             ) : null}
             {activeTab === "abstract" ? (
               <ReadingSection title="Abstract" value={paper.abstract} />
@@ -308,7 +320,23 @@ function ReadingSection({
   );
 }
 
-function ProjectIdeas({ values }: { values?: string[] | null }) {
+function ProjectIdeas({
+  isAdmin,
+  values,
+  savedProjectIdeas,
+  busyProjectIdeaTexts,
+  onSaveProjectIdea,
+}: {
+  isAdmin: boolean;
+  values?: string[] | null;
+  savedProjectIdeas: SavedProjectIdea[];
+  busyProjectIdeaTexts: Set<string>;
+  onSaveProjectIdea: (ideaText: string) => void;
+}) {
+  const savedIdeaTexts = new Set(
+    savedProjectIdeas.map((project) => project.idea_text),
+  );
+
   return (
     <section>
       <h3 className="font-serif text-3xl font-semibold text-[var(--desk-ink)]">
@@ -319,12 +347,28 @@ function ProjectIdeas({ values }: { values?: string[] | null }) {
           {values.map((value, index) => (
             <li
               key={value}
-              className="grid grid-cols-[2.5rem_1fr] gap-4 rounded-lg border border-[var(--desk-border)] bg-[var(--desk-surface)] p-5 text-base leading-8 text-[var(--desk-ink)]"
+              className="grid gap-4 rounded-lg border border-[var(--desk-border)] bg-[var(--desk-surface)] p-5 text-base leading-8 text-[var(--desk-ink)] sm:grid-cols-[2.5rem_1fr_auto]"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--desk-surface-2)] text-sm font-semibold text-[var(--desk-accent)] ring-1 ring-inset ring-[var(--desk-border)]">
                 {index + 1}
               </span>
               <span>{value}</span>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  disabled={
+                    savedIdeaTexts.has(value) || busyProjectIdeaTexts.has(value)
+                  }
+                  onClick={() => onSaveProjectIdea(value)}
+                  className="min-h-10 self-start rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface-2)] px-3 text-sm font-medium text-[var(--desk-accent)] transition hover:bg-[var(--desk-surface)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savedIdeaTexts.has(value)
+                    ? "Saved"
+                    : busyProjectIdeaTexts.has(value)
+                      ? "Saving"
+                      : "Save project"}
+                </button>
+              ) : null}
             </li>
           ))}
         </ol>
@@ -343,7 +387,7 @@ function DossierDetails({ paper, source }: { paper: Paper; source: string }) {
     { label: "Source", value: source },
     { label: "Source ID", value: paper.source_paper_id ?? paper.arxiv_id },
     { label: "Job Status", value: formatLabel(paper.latest_job?.status) },
-    { label: "Retry Count", value: getDetailRetryLabel(paper) },
+    { label: "Tries", value: getDetailRetryLabel(paper) },
     {
       label: "Model",
       value:
