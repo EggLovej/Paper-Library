@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ArXiv Sieve
 
-## Getting Started
+Sort papers before they rot in your inbox.
 
-First, run the development server:
+ArXiv Sieve is a small research desk for turning Scholar Inbox emails and arXiv links into a searchable paper library. It queues papers, summarizes them with Gemini, sends one email report per paper, and lets the curator rate what is worth reading.
+
+![ArXiv Sieve screenshot](public/screenshot.webp)
+
+## What It Does
+
+- Ingests Scholar Inbox digest emails through a Google Apps Script webhook.
+- Resolves Scholar Inbox links into arXiv PDFs without exposing private `sha_key` values.
+- Queues papers in Supabase and processes them with retry/backoff.
+- Generates structured summaries: overview, contributions, prior-work delta, and project ideas.
+- Sends report emails with rating actions.
+- Keeps the public library read-only while curator actions stay behind a passphrase cookie.
+- Adds author/model views with search, grid/list display, and lightweight ranking.
+
+## Stack
+
+- Next.js App Router
+- Supabase Postgres
+- Gemini via `@google/genai`
+- Resend for report emails
+- Vercel for hosting
+- Google Apps Script for Gmail polling
+
+## Local Setup
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env.local` with the values from `.env.example`. The important split is:
 
-## Learn More
+- public visitors can read `/api/papers`
+- admin-only routes require `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET`
+- Apps Script uses `EMAIL_INGEST_SECRET`
+- queue processing can be triggered by admin actions, email ingest, or cron-style calls
 
-To learn more about Next.js, take a look at the following resources:
+## Database
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Run `supabase/schema.sql` in your Supabase project. It defines:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `papers`
+- `paper_processing_jobs`
+- `gmail_ingested_messages`
+- login rate-limit/audit tables
 
-## Deploy on Vercel
+## Quality Checks
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run lint
+npm run build
+npm test
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The tests are HTTP smoke tests against the real Next API routes. They intentionally run without Supabase credentials to verify auth boundaries and configuration failures.
+
+## Why It Exists
+
+Scholar alerts are easy to ignore because each email is a tiny decision tax. ArXiv Sieve turns that stream into a queue, extracts the useful parts, and makes triage fast enough that reading actually happens.
