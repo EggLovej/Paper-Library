@@ -15,10 +15,10 @@ export async function logAdminAuditEvent(
   event: AuditEvent,
 ) {
   if (!supabase) {
-    return;
+    return { ok: false, error: "Supabase is not configured." };
   }
 
-  await supabase.from("admin_audit_events").insert({
+  const { error } = await supabase.from("admin_audit_events").insert({
     action: event.action,
     resource_type: event.resourceType ?? null,
     resource_id: event.resourceId ?? null,
@@ -26,4 +26,17 @@ export async function logAdminAuditEvent(
     ip_address: getRequestIp(request),
     user_agent: getRequestUserAgent(request),
   });
+
+  if (error) {
+    console.error("Admin audit event could not be recorded", {
+      action: event.action,
+      resourceType: event.resourceType,
+      resourceId: event.resourceId,
+      error: error.message,
+    });
+
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, error: null };
 }

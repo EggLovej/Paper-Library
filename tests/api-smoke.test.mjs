@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { readFile } from "node:fs/promises";
 import net from "node:net";
 import test from "node:test";
 
@@ -122,6 +123,9 @@ test("API routes enforce auth boundaries and return JSON", async (t) => {
   assert.equal(unauthenticatedPost.status, 401);
   assert.match((await unauthenticatedPost.json()).error, /Admin login required/i);
 
+  const unauthenticatedActivity = await fetch(`${server.baseUrl}/api/activity`);
+  assert.equal(unauthenticatedActivity.status, 401);
+
   const badLogin = await fetch(`${server.baseUrl}/api/auth/login`, {
     method: "POST",
     headers: {
@@ -151,6 +155,28 @@ test("API routes enforce auth boundaries and return JSON", async (t) => {
     headers: { Cookie: cookie },
   });
   assert.deepEqual(await authenticatedSession.json(), { isAdmin: true });
+
+  const authenticatedActivity = await fetch(`${server.baseUrl}/api/activity`, {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(authenticatedActivity.status, 500);
+  assert.match(
+    (await authenticatedActivity.json()).error,
+    /Supabase is not configured/i,
+  );
+
+  const resendReport = await fetch(
+    `${server.baseUrl}/api/papers/test-paper/report-email/resend`,
+    {
+      method: "POST",
+      headers: {
+        Cookie: cookie,
+        Origin: server.baseUrl,
+      },
+    },
+  );
+  assert.equal(resendReport.status, 500);
+  assert.match((await resendReport.json()).error, /Supabase is not configured/i);
 });
 
 test("configured API routes fail clearly when Supabase is missing", async (t) => {
@@ -204,4 +230,16 @@ test("configured API routes fail clearly when Supabase is missing", async (t) =>
     (await ingestMissingSupabase.json()).error,
     /Supabase is not configured/i,
   );
+});
+
+test("signed email rating route records an email-link audit event", async () => {
+  const routeSource = await readFile(
+    "app/api/papers/[id]/rate/route.ts",
+    "utf8",
+  );
+
+  assert.match(routeSource, /logAdminAuditEvent/);
+  assert.match(routeSource, /action:\s*"paper_rating_updated"/);
+  assert.match(routeSource, /resourceType:\s*"paper"/);
+  assert.match(routeSource, /source:\s*"email_link"/);
 });

@@ -71,7 +71,7 @@ export async function PATCH(
     action: "paper_rating_updated",
     resourceType: "paper",
     resourceId: id,
-    metadata: { rating: body.rating ?? null },
+    metadata: { rating: data.rating ?? null, source: "app" },
   });
 
   return Response.json({ paper: data });

@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { AdminPanel } from "./admin-panel";
+import { ActivityView } from "./activity-view";
 import { DirectoryBrowser, DirectoryControls } from "./directory-browser";
 import { PaperDetailPanel } from "./paper-detail-panel";
 import {
@@ -32,6 +33,7 @@ import {
 import { ProcessStatus } from "./process-status";
 import { SavedProjectsView } from "./saved-projects-view";
 import { SidebarNavigation } from "./sidebar-navigation";
+import { useActivity } from "./use-activity";
 import { useAdminSession } from "./use-admin-session";
 import { useSavedProjects } from "./use-saved-projects";
 import type {
@@ -87,6 +89,9 @@ export function PaperLibraryClient() {
     savedProjects,
     setSavedProjects,
   } = useSavedProjects({ isAdmin, setSubmitState });
+  const { activityState, loadActivity } = useActivity({
+    enabled: isAdmin && viewMode === "activity",
+  });
 
   const fetchPapers = useCallback(async (): Promise<PapersState> => {
     try {
@@ -132,7 +137,7 @@ export function PaperLibraryClient() {
   );
 
   const runProcessingQueue = useCallback(
-    async (options?: { limit?: number; silent?: boolean }) => {
+    async (options?: { limit?: number | "all"; silent?: boolean }) => {
       if (!isAdmin) {
         setProcessState({
           status: "error",
@@ -153,8 +158,9 @@ export function PaperLibraryClient() {
       });
 
       try {
+        const limit = options?.limit ?? 1;
         const response = await fetch(
-          `/api/jobs/process?limit=${options?.limit ?? 1}`,
+          `/api/jobs/process?limit=${encodeURIComponent(String(limit))}`,
           {
             method: "POST",
           },
@@ -552,6 +558,65 @@ export function PaperLibraryClient() {
     }
   }
 
+  async function resendReportEmail(paperId: string) {
+    if (!isAdmin) {
+      return;
+    }
+
+    setPaperBusy(paperId, true);
+    setSubmitState({ status: "submitting" });
+
+    try {
+      const response = await fetch(
+        `/api/papers/${paperId}/report-email/resend`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        paper?: Partial<Paper> & { id: string };
+        error?: string;
+        details?: string;
+      };
+
+      if (!response.ok) {
+        setSubmitState({
+          status: "error",
+          message:
+            result.details ??
+            result.error ??
+            "The report email could not be resent.",
+        });
+        await loadActivity();
+        return;
+      }
+
+      if (result.paper) {
+        setPapersState((current) => ({
+          ...current,
+          papers: current.papers.map((paper) =>
+            paper.id === paperId ? { ...paper, ...result.paper } : paper,
+          ),
+        }));
+      }
+
+      setSubmitState({
+        status: "success",
+        message: "Report email sent.",
+      });
+      await Promise.all([loadPapers({ silent: true }), loadActivity()]);
+    } catch {
+      setSubmitState({
+        status: "error",
+        message: "Could not reach the email resend endpoint.",
+      });
+    } finally {
+      setPaperBusy(paperId, false);
+    }
+  }
+
   function toggleTheme() {
     setIsThemeChanging(true);
     setIsDarkMode((current) => !current);
@@ -587,8 +652,15 @@ export function PaperLibraryClient() {
       authors: authorItems.length,
       models: modelItems.length,
       projects: savedProjects.length,
+      activity: activityState.activity?.summary.openIssueCount ?? 0,
     };
-  }, [authorItems.length, modelItems.length, papersState.papers, savedProjects.length]);
+  }, [
+    activityState.activity?.summary.openIssueCount,
+    authorItems.length,
+    modelItems.length,
+    papersState.papers,
+    savedProjects.length,
+  ]);
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -634,7 +706,10 @@ export function PaperLibraryClient() {
   ]);
 
   const isPaperView =
-    viewMode !== "authors" && viewMode !== "models" && viewMode !== "projects";
+    viewMode !== "authors" &&
+    viewMode !== "models" &&
+    viewMode !== "projects" &&
+    viewMode !== "activity";
   const hasFilters =
     viewMode !== "inbox" ||
     ratingFilter !== "any" ||
@@ -862,7 +937,7 @@ export function PaperLibraryClient() {
                           disabled={processState.status === "running"}
                           onClick={() =>
                             void runProcessingQueue({
-                              limit: 2,
+                              limit: "all",
                               silent: false,
                             })
                           }
@@ -875,7 +950,13 @@ export function PaperLibraryClient() {
                       ) : null}
                       <button
                         type="button"
-                        onClick={() => void loadPapers()}
+                        onClick={() => {
+                          if (viewMode === "activity") {
+                            void loadActivity();
+                          } else {
+                            void loadPapers();
+                          }
+                        }}
                         className="min-h-10 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-4 text-sm font-medium text-[var(--desk-ink)] transition hover:bg-[var(--desk-surface-2)]"
                       >
                         Sync
@@ -919,6 +1000,21 @@ export function PaperLibraryClient() {
                     onOpenPaper={setSelectedPaperId}
                     onDeleteProject={(projectId) =>
                       void deleteProjectIdea(projectId)
+                    }
+                  />
+                ) : null}
+
+                {viewMode === "activity" ? (
+                  <ActivityView
+                    isAdmin={isAdmin}
+                    activityState={activityState}
+                    papers={papersState.papers}
+                    searchQuery={searchQuery}
+                    busyPaperIds={busyPaperIds}
+                    onRefresh={() => void loadActivity()}
+                    onOpenPaper={setSelectedPaperId}
+                    onResendReportEmail={(paperId) =>
+                      void resendReportEmail(paperId)
                     }
                   />
                 ) : null}

@@ -32,6 +32,20 @@ export function formatDate(value?: string | null) {
   }).format(new Date(value));
 }
 
+export function formatDateTime(value?: string | null) {
+  if (!value) {
+    return "Unknown";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 export function formatLabel(value?: string | null) {
   if (!value) {
     return "No verdict";
@@ -94,13 +108,13 @@ export function getStatusClasses(value?: string | null) {
 export function getRatingClasses(value?: string | null) {
   switch (value) {
     case "interested":
-      return "bg-teal-50 text-teal-800 ring-teal-200";
+      return "bg-teal-50 text-teal-800 ring-teal-200 dark:bg-teal-950 dark:text-teal-200 dark:ring-teal-900";
     case "maybe":
-      return "bg-amber-50 text-amber-800 ring-amber-200";
+      return "bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:ring-amber-900";
     case "read_later":
-      return "bg-sky-50 text-sky-800 ring-sky-200";
+      return "bg-sky-50 text-sky-800 ring-sky-200 dark:bg-sky-950 dark:text-sky-200 dark:ring-sky-900";
     case "not_interested":
-      return "bg-zinc-100 text-zinc-600 ring-zinc-200";
+      return "bg-zinc-100 text-zinc-600 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-200 dark:ring-zinc-700";
     default:
       return "bg-[var(--desk-surface)] text-[var(--desk-muted)] ring-[var(--desk-border)]";
   }

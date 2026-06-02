@@ -5,6 +5,24 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
+type DeletedProjectIdeaRow = {
+  id: string;
+  paper_id: string;
+  idea_text: string;
+  paper?:
+    | {
+        id: string;
+        arxiv_id: string;
+        title: string | null;
+      }
+    | Array<{
+        id: string;
+        arxiv_id: string;
+        title: string | null;
+      }>
+    | null;
+};
+
 export async function DELETE(
   request: Request,
   context: RouteContext<"/api/projects/[id]">,
@@ -26,8 +44,19 @@ export async function DELETE(
     .from("saved_project_ideas")
     .delete()
     .eq("id", id)
-    .select("id, paper_id")
-    .maybeSingle<{ id: string; paper_id: string }>();
+    .select(
+      `
+        id,
+        paper_id,
+        idea_text,
+        paper:papers (
+          id,
+          arxiv_id,
+          title
+        )
+      `,
+    )
+    .maybeSingle<DeletedProjectIdeaRow>();
 
   if (error) {
     return Response.json(
@@ -49,8 +78,23 @@ export async function DELETE(
     resourceId: id,
     metadata: {
       paperId: data.paper_id,
+      ideaText: data.idea_text,
+      paperTitle: getProjectPaper(data)?.title ?? null,
+      arxivId: getProjectPaper(data)?.arxiv_id ?? null,
     },
   });
 
   return Response.json({ status: "deleted", projectId: id });
+}
+
+function getProjectPaper(project: DeletedProjectIdeaRow) {
+  if (!project.paper) {
+    return null;
+  }
+
+  if (Array.isArray(project.paper)) {
+    return project.paper[0] ?? null;
+  }
+
+  return project.paper;
 }

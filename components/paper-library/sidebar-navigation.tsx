@@ -27,6 +27,7 @@ export function SidebarNavigation({
     { value: "projects", label: "Projects", count: paperCounts.projects },
     { value: "authors", label: "Authors", count: paperCounts.authors },
     { value: "models", label: "Models", count: paperCounts.models },
+    { value: "activity", label: "Activity", count: paperCounts.activity },
   ];
 
   return (

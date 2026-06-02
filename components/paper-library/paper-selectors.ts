@@ -21,6 +21,7 @@ export function getViewTitle(viewMode: ViewMode) {
     authors: "Authors",
     models: "Models",
     projects: "Projects",
+    activity: "Activity",
   };
 
   return titles[viewMode];
@@ -59,6 +60,10 @@ export function getResultSummary({
     return `${visibleProjectCount} saved project${
       visibleProjectCount === 1 ? "" : "s"
     }`;
+  }
+
+  if (viewMode === "activity") {
+    return "Ingest, queue, email, and admin signals";
   }
 
   return `${visiblePapersCount} shown of ${papersState.papers.length}`;

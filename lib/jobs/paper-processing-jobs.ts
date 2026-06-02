@@ -6,10 +6,8 @@ type PaperProcessingJob = {
   paper_id: string;
   arxiv_id: string;
   attempts: number;
-  max_attempts: number;
 };
 
-const DEFAULT_MAX_ATTEMPTS = 4;
 const RETRY_DELAYS_MS = [
   2 * 60_000,
   60 * 60_000,
@@ -42,7 +40,6 @@ export async function enqueuePaperProcessingJob(
       paper_id: paperId,
       arxiv_id: arxivId,
       status: "pending",
-      max_attempts: DEFAULT_MAX_ATTEMPTS,
     })
     .select("id, status")
     .single<{ id: string; status: string }>();
@@ -69,7 +66,7 @@ async function claimNextPaperProcessingJob(supabase: SupabaseServerClient) {
 
   const { data: jobs, error: loadError } = await supabase
     .from("paper_processing_jobs")
-    .select("id, paper_id, arxiv_id, attempts, max_attempts")
+    .select("id, paper_id, arxiv_id, attempts")
     .eq("status", "pending")
     .lte("run_after", new Date().toISOString())
     .order("created_at", { ascending: true })
@@ -96,7 +93,7 @@ async function claimNextPaperProcessingJob(supabase: SupabaseServerClient) {
     })
     .eq("id", job.id)
     .eq("status", "pending")
-    .select("id, paper_id, arxiv_id, attempts, max_attempts")
+    .select("id, paper_id, arxiv_id, attempts")
     .maybeSingle<PaperProcessingJob>();
 
   if (claimError) {
@@ -131,7 +128,6 @@ async function markJobFailed(
   job: PaperProcessingJob,
   errorMessage: string,
 ) {
-  const shouldRetry = job.attempts < job.max_attempts;
   const retryDelayMs =
     RETRY_DELAYS_MS[job.attempts - 1] ??
     RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
@@ -140,8 +136,8 @@ async function markJobFailed(
   const { error } = await supabase
     .from("paper_processing_jobs")
     .update({
-      status: shouldRetry ? "pending" : "failed",
-      run_after: shouldRetry ? runAfter.toISOString() : new Date().toISOString(),
+      status: "pending",
+      run_after: runAfter.toISOString(),
       locked_at: null,
       last_error: errorMessage,
       updated_at: new Date().toISOString(),
@@ -155,7 +151,7 @@ async function markJobFailed(
   const { error: paperError } = await supabase
     .from("papers")
     .update({
-      processing_status: shouldRetry ? "pending" : "failed",
+      processing_status: "pending",
       processing_error: errorMessage,
       updated_at: new Date().toISOString(),
     })

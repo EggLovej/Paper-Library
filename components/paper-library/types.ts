@@ -31,11 +31,90 @@ export type Paper = {
   processing_status?: string | null;
   processing_error?: string | null;
   processing_model?: string | null;
+  report_email_sent_at?: string | null;
+  report_email_error?: string | null;
   created_at?: string | null;
   source?: string | null;
   source_paper_id?: string | null;
   latest_job?: PaperProcessingJob | null;
 };
+
+export type ActivitySummary = {
+  lastQueueRunAt?: string | null;
+  pendingJobs: number;
+  processingJobs: number;
+  failedJobs: number;
+  failedIngests: number;
+  emailErrors: number;
+  reportsWaiting: number;
+  openIssueCount: number;
+};
+
+export type ActivityIngestedMessage = {
+  id: string;
+  gmail_message_id: string;
+  subject?: string | null;
+  received_at?: string | null;
+  status: string;
+  paper_urls?: string[] | null;
+  error?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ActivityJob = PaperProcessingJob & {
+  arxiv_id: string;
+  paper?: Pick<
+    Paper,
+    | "id"
+    | "title"
+    | "arxiv_id"
+    | "processing_status"
+    | "processing_model"
+  > & {
+    report_email_sent_at?: string | null;
+    report_email_error?: string | null;
+  } | null;
+};
+
+export type ActivityEmailReport = Pick<
+  Paper,
+  "id" | "arxiv_id" | "title" | "processing_status" | "processing_model"
+> & {
+  report_email_sent_at?: string | null;
+  report_email_error?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+export type ActivityAuditEvent = {
+  id: string;
+  action: string;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  resource_label?: string | null;
+  resource_arxiv_id?: string | null;
+  related_paper_id?: string | null;
+  project_idea_text?: string | null;
+  metadata?: Record<string, unknown> | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+};
+
+export type ActivityData = {
+  summary: ActivitySummary;
+  ingestedMessages: ActivityIngestedMessage[];
+  jobs: ActivityJob[];
+  emailReports: ActivityEmailReport[];
+  auditEvents: ActivityAuditEvent[];
+};
+
+export type ActivityState =
+  | { status: "idle"; activity: null; message?: string }
+  | { status: "loading"; activity: ActivityData | null; message?: string }
+  | { status: "ready"; activity: ActivityData; message?: string }
+  | { status: "error"; activity: ActivityData | null; message: string };
 
 export type SavedProjectIdea = {
   id: string;
@@ -96,6 +175,7 @@ export type PaperCounts = {
   authors: number;
   models: number;
   projects: number;
+  activity: number;
 };
 export type ViewMode =
   | "inbox"
@@ -106,5 +186,6 @@ export type ViewMode =
   | "toss_pile"
   | "authors"
   | "models"
-  | "projects";
+  | "projects"
+  | "activity";
 export type RatingFilter = "any" | "unrated" | string;

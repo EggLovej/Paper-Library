@@ -22,7 +22,18 @@ type SavedProjectIdeaRow = {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  paper?: unknown;
+  paper?:
+    | {
+        id: string;
+        arxiv_id: string;
+        title: string | null;
+      }
+    | Array<{
+        id: string;
+        arxiv_id: string;
+        title: string | null;
+      }>
+    | null;
 };
 
 const PROJECT_COLUMNS = `
@@ -152,6 +163,9 @@ export async function POST(request: Request) {
     resourceId: data.id,
     metadata: {
       paperId,
+      ideaText,
+      paperTitle: getProjectPaper(data)?.title ?? null,
+      arxivId: getProjectPaper(data)?.arxiv_id ?? null,
     },
   });
 
@@ -162,4 +176,16 @@ export async function POST(request: Request) {
     },
     { status: 201 },
   );
+}
+
+function getProjectPaper(project: SavedProjectIdeaRow) {
+  if (!project.paper) {
+    return null;
+  }
+
+  if (Array.isArray(project.paper)) {
+    return project.paper[0] ?? null;
+  }
+
+  return project.paper;
 }

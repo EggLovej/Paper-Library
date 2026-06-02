@@ -1,4 +1,9 @@
-import { isPaperRating } from "@/lib/paper-ratings";
+import { logAdminAuditEvent } from "@/lib/auth/audit";
+import {
+  isPaperRating,
+  PAPER_RATING_LABELS,
+  type PaperRating,
+} from "@/lib/paper-ratings";
 import { invalidJsonResponse, missingSupabaseResponse } from "@/lib/api/responses";
 import { verifyRatingActionToken } from "@/lib/rating-action-tokens";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -13,10 +18,12 @@ type RatingRequestBody = {
 async function updateRating({
   paperId,
   rating,
+  request,
   token,
 }: {
   paperId: string;
   rating: unknown;
+  request: Request;
   token: string | null;
 }) {
   const supabase = createSupabaseServerClient();
@@ -47,7 +54,7 @@ async function updateRating({
     })
     .eq("id", paperId)
     .select("id, rating")
-    .maybeSingle<{ id: string; rating: string | null }>();
+    .maybeSingle<{ id: string; rating: PaperRating | null }>();
 
   if (error) {
     return Response.json(
@@ -60,10 +67,22 @@ async function updateRating({
     return Response.json({ error: "Paper not found." }, { status: 404 });
   }
 
+  await logAdminAuditEvent(supabase, request, {
+    action: "paper_rating_updated",
+    resourceType: "paper",
+    resourceId: paperId,
+    metadata: {
+      rating: data.rating,
+      source: "email_link",
+    },
+  });
+
   return Response.json({ paper: data });
 }
 
 function confirmationHtml(rating: string) {
+  const label = isPaperRating(rating) ? PAPER_RATING_LABELS[rating] : rating;
+
   return `<!doctype html>
     <html>
       <head>
@@ -75,7 +94,7 @@ function confirmationHtml(rating: string) {
         <main style="max-width:520px;margin:15vh auto;padding:28px;border:1px solid #e4e4e7;border-radius:8px;background:#fff;">
           <p style="margin:0 0 8px;color:#0f766e;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">ArXiv Sieve</p>
           <h1 style="margin:0 0 12px;font-size:24px;">Rating saved</h1>
-          <p style="margin:0;color:#52525b;font-size:15px;line-height:1.6;">Saved as ${rating}. You can close this tab.</p>
+          <p style="margin:0;color:#52525b;font-size:15px;line-height:1.6;">Saved as ${label}. You can close this tab.</p>
         </main>
       </body>
     </html>`;
@@ -89,7 +108,7 @@ export async function GET(
   const url = new URL(request.url);
   const rating = url.searchParams.get("rating");
   const token = url.searchParams.get("token");
-  const response = await updateRating({ paperId: id, rating, token });
+  const response = await updateRating({ paperId: id, rating, request, token });
 
   if (!response.ok) {
     return response;
@@ -118,6 +137,7 @@ export async function POST(
   return updateRating({
     paperId: id,
     rating: body.rating,
+    request,
     token: typeof body.token === "string" ? body.token : null,
   });
 }

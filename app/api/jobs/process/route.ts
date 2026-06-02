@@ -32,13 +32,19 @@ function isBearerAuthorized(request: Request) {
 
 function getLimit(request: Request) {
   const url = new URL(request.url);
-  const parsedLimit = Number(url.searchParams.get("limit") ?? 1);
+  const limitParam = url.searchParams.get("limit") ?? "1";
+
+  if (limitParam === "all") {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const parsedLimit = Number(limitParam);
 
   if (!Number.isInteger(parsedLimit)) {
     return 1;
   }
 
-  return Math.min(Math.max(parsedLimit, 1), 5);
+  return Math.max(parsedLimit, 1);
 }
 
 export async function POST(request: Request) {
