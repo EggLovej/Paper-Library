@@ -47,39 +47,35 @@
   }
 
   async function submitPaper({ pageUrl, rating }) {
-    const settings = await getSettings();
-    const appBaseUrl = normalizeBaseUrl(settings.appBaseUrl);
-    const secret = String(settings.extensionApiSecret || "").trim();
     const arxivUrl = getArxivUrl(pageUrl);
-
-    if (!secret) {
-      throw new Error("Add your extension API secret in the extension options.");
-    }
 
     if (!arxivUrl) {
       throw new Error("This tab is not an arXiv abs or PDF page.");
     }
 
-    const response = await fetch(`${appBaseUrl}/api/extension/papers`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${secret}`,
-        "Content-Type": "application/json",
+    const response = await chrome.runtime.sendMessage({
+      type: "submit_paper",
+      payload: {
+        pageUrl: arxivUrl,
+        rating,
       },
-      body: JSON.stringify({
-        url: arxivUrl,
-        ...(rating ? { rating } : {}),
-      }),
     });
-    const result = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      throw new Error(
-        result.details || result.error || `Sieve returned ${response.status}.`,
-      );
+    if (!response?.ok) {
+      throw new Error(response?.error || "Could not add this paper.");
     }
 
-    return result;
+    return response.result;
+  }
+
+  async function openOptions() {
+    const response = await chrome.runtime.sendMessage({
+      type: "open_options",
+    });
+
+    if (!response?.ok) {
+      throw new Error("Could not open extension options.");
+    }
   }
 
   window.SieveClipper = {
@@ -88,6 +84,7 @@
     getArxivUrl,
     getSettings,
     normalizeBaseUrl,
+    openOptions,
     saveSettings,
     submitPaper,
   };

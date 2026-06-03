@@ -37,8 +37,12 @@
     submitButton.disabled = true;
   }
 
-  settingsButton.addEventListener("click", () => {
-    chrome.runtime.openOptionsPage();
+  settingsButton.addEventListener("click", async () => {
+    try {
+      await clipper.openOptions();
+    } catch (error) {
+      setStatus(error.message || "Could not open settings.", "bad");
+    }
   });
 
   submitButton.addEventListener("click", async () => {

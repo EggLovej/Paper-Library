@@ -3,6 +3,12 @@
   "name": "ArXiv Sieve Clipper",
   "version": "0.1.0",
   "description": "Add arXiv papers to ArXiv Sieve from the current tab.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "https://arxiv.org/*",
@@ -11,8 +17,17 @@
     "http://localhost:3000/*"
   ],
   "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
     "default_title": "Add to Sieve",
     "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "options_page": "options.html",
   "content_scripts": [
