@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 type IngestedMessageRow = {
   id: string;
   gmail_message_id: string;
+  thread_id: string | null;
   subject: string | null;
   received_at: string | null;
   status: string;
@@ -87,7 +88,7 @@ type AuditSavedProjectIdeaRow = {
 };
 
 const INGEST_COLUMNS =
-  "id, gmail_message_id, subject, received_at, status, paper_urls, error, created_at, updated_at";
+  "id, gmail_message_id, thread_id, subject, received_at, status, paper_urls, error, created_at, updated_at";
 
 const JOB_COLUMNS = `
   id,

@@ -13,11 +13,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  applicationName: "ArXiv Sieve",
   title: "ArXiv Sieve",
   description: "A personal research desk for triaging papers.",
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: "/logo.webp",
     apple: "/logo.webp",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "ArXiv Sieve",
   },
 };
 

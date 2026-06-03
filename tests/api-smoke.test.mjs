@@ -58,6 +58,7 @@ async function startTestServer() {
         ADMIN_SESSION_SECRET: "test-session-secret",
         APP_BASE_URL: baseUrl,
         EMAIL_INGEST_SECRET: "test-ingest-secret",
+        EXTENSION_API_SECRET: "test-extension-secret",
         NEXT_PUBLIC_SUPABASE_URL: "",
         SUPABASE_SERVICE_ROLE_KEY: "",
         SUPABASE_SECRET_KEY: "",
@@ -228,6 +229,57 @@ test("configured API routes fail clearly when Supabase is missing", async (t) =>
   assert.equal(ingestMissingSupabase.status, 500);
   assert.match(
     (await ingestMissingSupabase.json()).error,
+    /Supabase is not configured/i,
+  );
+
+  const extensionPreflight = await fetch(
+    `${server.baseUrl}/api/extension/papers`,
+    {
+      method: "OPTIONS",
+      headers: {
+        Origin: "chrome-extension://test-extension",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "authorization,content-type",
+      },
+    },
+  );
+  assert.equal(extensionPreflight.status, 204);
+  assert.equal(
+    extensionPreflight.headers.get("access-control-allow-origin"),
+    "chrome-extension://test-extension",
+  );
+
+  const extensionUnauthorized = await fetch(
+    `${server.baseUrl}/api/extension/papers`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "chrome-extension://test-extension",
+      },
+      body: JSON.stringify({ url: "https://arxiv.org/pdf/2401.00001" }),
+    },
+  );
+  assert.equal(extensionUnauthorized.status, 401);
+
+  const extensionMissingSupabase = await fetch(
+    `${server.baseUrl}/api/extension/papers`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-extension-secret",
+        "Content-Type": "application/json",
+        Origin: "chrome-extension://test-extension",
+      },
+      body: JSON.stringify({
+        url: "https://arxiv.org/pdf/2401.00001",
+        rating: "interested",
+      }),
+    },
+  );
+  assert.equal(extensionMissingSupabase.status, 500);
+  assert.match(
+    (await extensionMissingSupabase.json()).error,
     /Supabase is not configured/i,
   );
 });

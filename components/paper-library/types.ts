@@ -53,6 +53,7 @@ export type ActivitySummary = {
 export type ActivityIngestedMessage = {
   id: string;
   gmail_message_id: string;
+  thread_id?: string | null;
   subject?: string | null;
   received_at?: string | null;
   status: string;

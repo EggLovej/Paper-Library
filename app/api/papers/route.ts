@@ -149,7 +149,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await submitPaperUrl(supabase, body.url.trim());
+    const result = await submitPaperUrl(supabase, body.url.trim(), {
+      auditSource: "app",
+    });
 
     if (result.status === "invalid_url") {
       return Response.json({ error: result.error }, { status: 400 });
@@ -160,6 +162,7 @@ export async function POST(request: Request) {
       resourceType: "paper",
       resourceId: result.paperId,
       metadata: {
+        source: "app",
         arxivId: result.arxivId,
         status: result.status,
       },

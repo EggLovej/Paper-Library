@@ -9,10 +9,10 @@ type AuditEvent = {
   metadata?: Record<string, unknown>;
 };
 
-export async function logAdminAuditEvent(
+async function insertAuditEvent(
   supabase: SupabaseServerClient | null,
-  request: Request,
   event: AuditEvent,
+  request?: Request,
 ) {
   if (!supabase) {
     return { ok: false, error: "Supabase is not configured." };
@@ -23,8 +23,8 @@ export async function logAdminAuditEvent(
     resource_type: event.resourceType ?? null,
     resource_id: event.resourceId ?? null,
     metadata: event.metadata ?? {},
-    ip_address: getRequestIp(request),
-    user_agent: getRequestUserAgent(request),
+    ip_address: request ? getRequestIp(request) : null,
+    user_agent: request ? getRequestUserAgent(request) : null,
   });
 
   if (error) {
@@ -39,4 +39,19 @@ export async function logAdminAuditEvent(
   }
 
   return { ok: true, error: null };
+}
+
+export async function logAdminAuditEvent(
+  supabase: SupabaseServerClient | null,
+  request: Request,
+  event: AuditEvent,
+) {
+  return insertAuditEvent(supabase, event, request);
+}
+
+export async function logSystemAuditEvent(
+  supabase: SupabaseServerClient | null,
+  event: AuditEvent,
+) {
+  return insertAuditEvent(supabase, event);
 }

@@ -1,6 +1,7 @@
 import { extractScholarInboxPaperUrls } from "@/lib/scholar-email";
 import { processPaperProcessingJobs } from "@/lib/jobs/paper-processing-jobs";
 import { submitPaperUrl } from "@/lib/papers/submit-paper";
+import { logAdminAuditEvent } from "@/lib/auth/audit";
 import {
   getNonEmptyString,
   invalidJsonResponse,
@@ -13,6 +14,7 @@ export const maxDuration = 60;
 
 type ScholarEmailRequestBody = {
   messageId?: unknown;
+  threadId?: unknown;
   subject?: unknown;
   date?: unknown;
   body?: unknown;
@@ -21,6 +23,7 @@ type ScholarEmailRequestBody = {
 type IngestedMessageRow = {
   id: string;
   gmail_message_id: string;
+  thread_id: string | null;
   status: string;
 };
 
@@ -120,6 +123,7 @@ export async function POST(request: Request) {
   }
 
   const messageId = getNonEmptyString(body.messageId);
+  const threadId = getNonEmptyString(body.threadId);
   const emailBody = getNonEmptyString(body.body);
 
   if (!messageId || !emailBody) {
@@ -131,7 +135,7 @@ export async function POST(request: Request) {
 
   const { data: existingMessage, error: existingError } = await supabase
     .from("gmail_ingested_messages")
-    .select("id, gmail_message_id, status")
+    .select("id, gmail_message_id, thread_id, status")
     .eq("gmail_message_id", messageId)
     .maybeSingle<IngestedMessageRow>();
 
@@ -143,9 +147,17 @@ export async function POST(request: Request) {
   }
 
   if (existingMessage?.status === "completed") {
+    if (threadId && !existingMessage.thread_id) {
+      await supabase
+        .from("gmail_ingested_messages")
+        .update({ thread_id: threadId, updated_at: new Date().toISOString() })
+        .eq("id", existingMessage.id);
+    }
+
     return Response.json({
       status: "already_ingested",
       messageId,
+      threadId,
       papersQueued: 0,
       paperUrlsFound: 0,
     });
@@ -158,11 +170,12 @@ export async function POST(request: Request) {
       .from("gmail_ingested_messages")
       .insert({
         gmail_message_id: messageId,
+        thread_id: threadId,
         subject: getNonEmptyString(body.subject),
         received_at: parseDate(getNonEmptyString(body.date)),
         status: "processing",
       })
-      .select("id, gmail_message_id, status")
+      .select("id, gmail_message_id, thread_id, status")
       .single<IngestedMessageRow>();
 
     if (insertError) {
@@ -173,9 +186,28 @@ export async function POST(request: Request) {
     }
 
     messageRow = insertedMessage;
+  } else if (threadId && !messageRow.thread_id) {
+    await supabase
+      .from("gmail_ingested_messages")
+      .update({ thread_id: threadId, updated_at: new Date().toISOString() })
+      .eq("id", messageRow.id);
+    messageRow = { ...messageRow, thread_id: threadId };
   }
 
   const paperUrls = extractScholarInboxPaperUrls(emailBody);
+
+  await logAdminAuditEvent(supabase, request, {
+    action: "gmail_ingest_received",
+    resourceType: "gmail_message",
+    resourceId: messageRow.id,
+    metadata: {
+      source: "gmail_app_script",
+      messageId,
+      threadId,
+      subject: getNonEmptyString(body.subject),
+      paperUrlsFound: paperUrls.length,
+    },
+  });
 
   try {
     const results = [];
@@ -183,6 +215,7 @@ export async function POST(request: Request) {
     for (const paperUrl of paperUrls) {
       results.push(
         await submitPaperUrl(supabase, paperUrl, {
+          auditSource: "gmail_app_script",
           sourceMessageId: messageId,
         }),
       );
@@ -209,6 +242,7 @@ export async function POST(request: Request) {
         processingResults = await processPaperProcessingJobs(
           supabase,
           autoProcessLimit,
+          { source: "gmail_app_script" },
         );
       } catch (error) {
         processingError =
@@ -218,9 +252,26 @@ export async function POST(request: Request) {
       }
     }
 
+    await logAdminAuditEvent(supabase, request, {
+      action: "gmail_ingest_completed",
+      resourceType: "gmail_message",
+      resourceId: messageRow.id,
+      metadata: {
+        source: "gmail_app_script",
+        messageId,
+        threadId,
+        paperUrlsFound: paperUrls.length,
+        papersQueued: queuedCount,
+        autoProcessLimit,
+        papersProcessed: processingResults.length,
+        processingError,
+      },
+    });
+
     return Response.json({
       status: "completed",
       messageId,
+      threadId,
       paperUrlsFound: paperUrls.length,
       papersQueued: queuedCount,
       autoProcessLimit,
@@ -236,11 +287,26 @@ export async function POST(request: Request) {
       error,
     });
 
+    await logAdminAuditEvent(supabase, request, {
+      action: "gmail_ingest_failed",
+      resourceType: "gmail_message",
+      resourceId: messageRow.id,
+      metadata: {
+        source: "gmail_app_script",
+        messageId,
+        threadId,
+        paperUrlsFound: paperUrls.length,
+        error:
+          error instanceof Error ? error.message : "The email could not be ingested.",
+      },
+    });
+
     return Response.json(
       {
         error:
           error instanceof Error ? error.message : "The email could not be ingested.",
         messageId,
+        threadId,
         paperUrlsFound: paperUrls.length,
       },
       { status: 500 },

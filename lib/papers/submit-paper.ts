@@ -1,4 +1,5 @@
 import { normalizeArxivUrl, type NormalizedArxivPaper } from "@/lib/arxiv";
+import { logSystemAuditEvent } from "@/lib/auth/audit";
 import { enqueuePaperProcessingJob } from "@/lib/jobs/paper-processing-jobs";
 import { resolveScholarInboxPaperUrl } from "@/lib/scholar-inbox";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
@@ -15,6 +16,7 @@ type ResolvedSubmittedPaper = NormalizedArxivPaper & {
 };
 
 type SubmitPaperOptions = {
+  auditSource?: string;
   sourceMessageId?: string | null;
 };
 
@@ -42,8 +44,18 @@ export async function submitPaperUrl(
   options: SubmitPaperOptions = {},
 ) {
   const resolvedPaper = await resolveSubmittedPaperUrl(submittedUrl);
+  const auditSource = options.auditSource ?? "app";
 
   if (!resolvedPaper) {
+    await logSystemAuditEvent(supabase, {
+      action: "paper_submission_rejected",
+      resourceType: "paper",
+      metadata: {
+        source: auditSource,
+        reason: "invalid_url",
+      },
+    });
+
     return {
       status: "invalid_url" as const,
       error: "Please enter a valid arXiv URL or Scholar Inbox paper URL.",
@@ -86,6 +98,19 @@ export async function submitPaperUrl(
         existingPaper.arxiv_id,
       );
 
+      await logSystemAuditEvent(supabase, {
+        action: "paper_already_exists",
+        resourceType: "paper",
+        resourceId: existingPaper.id,
+        metadata: {
+          source: auditSource,
+          arxivId: existingPaper.arxiv_id,
+          processingStatus: existingPaper.processing_status,
+          jobId: job.id,
+          queuedExisting: true,
+        },
+      });
+
       return {
         status: "already_exists" as const,
         paperId: existingPaper.id,
@@ -95,6 +120,18 @@ export async function submitPaperUrl(
         url: resolvedPaper.pdfUrl,
       };
     }
+
+    await logSystemAuditEvent(supabase, {
+      action: "paper_already_exists",
+      resourceType: "paper",
+      resourceId: existingPaper?.id,
+      metadata: {
+        source: auditSource,
+        arxivId: resolvedPaper.arxivId,
+        processingStatus: existingPaper?.processing_status ?? null,
+        queuedExisting: false,
+      },
+    });
 
     return {
       status: "already_exists" as const,
@@ -106,6 +143,20 @@ export async function submitPaperUrl(
   }
 
   const job = await enqueuePaperProcessingJob(supabase, data.id, data.arxiv_id);
+
+  await logSystemAuditEvent(supabase, {
+    action: "paper_accepted_for_processing",
+    resourceType: "paper",
+    resourceId: data.id,
+    metadata: {
+      source: auditSource,
+      arxivId: data.arxiv_id,
+      jobId: job.id,
+      sourceType: resolvedPaper.source ?? "arxiv",
+      sourcePaperId: resolvedPaper.sourcePaperId ?? null,
+      sourceMessageId: options.sourceMessageId ?? null,
+    },
+  });
 
   return {
     status: "accepted" as const,

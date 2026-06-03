@@ -198,49 +198,61 @@ export function ActivityView({
         />
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-lg border border-[var(--desk-border)] bg-[var(--desk-surface)] p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setCategoryFilter(option.value)}
-              className={`min-h-9 rounded-md border px-3 text-sm font-medium transition ${
-                categoryFilter === option.value
-                  ? "border-[var(--desk-accent)] bg-[var(--desk-surface-2)] text-[var(--desk-accent)]"
-                  : "border-[var(--desk-border)] bg-[var(--desk-surface)] text-[var(--desk-ink)] hover:bg-[var(--desk-surface-2)]"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+      <div className="rounded-lg border border-[var(--desk-border)] bg-[var(--desk-surface)] p-4 shadow-sm">
+        <div className="mb-4 flex flex-col gap-1">
+          <p className="font-serif text-xl font-semibold text-[var(--desk-ink)]">
+            Event history
+          </p>
+          <p className="text-sm leading-6 text-[var(--desk-muted)]">
+            Append-only audit events plus recent queue, ingest, and report
+            snapshots. The issue tiles above show current state.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-[var(--desk-muted)]">
-            Status
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as ActivityStatus)
-              }
-              className="min-h-10 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-3 text-sm text-[var(--desk-ink)] outline-none transition focus:border-[var(--desk-accent)] focus:ring-2 focus:ring-teal-100 dark:focus:ring-teal-950"
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {CATEGORY_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setCategoryFilter(option.value)}
+                className={`min-h-9 rounded-md border px-3 text-sm font-medium transition ${
+                  categoryFilter === option.value
+                    ? "border-[var(--desk-accent)] bg-[var(--desk-surface-2)] text-[var(--desk-accent)]"
+                    : "border-[var(--desk-border)] bg-[var(--desk-surface)] text-[var(--desk-ink)] hover:bg-[var(--desk-surface-2)]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-[var(--desk-muted)]">
+              Status
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as ActivityStatus)
+                }
+                className="min-h-10 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-3 text-sm text-[var(--desk-ink)] outline-none transition focus:border-[var(--desk-accent)] focus:ring-2 focus:ring-teal-100 dark:focus:ring-teal-950"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={activityState.status === "loading"}
+              className="min-h-10 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-4 text-sm font-medium text-[var(--desk-ink)] transition hover:bg-[var(--desk-surface-2)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={activityState.status === "loading"}
-            className="min-h-10 rounded-md border border-[var(--desk-border)] bg-[var(--desk-surface)] px-4 text-sm font-medium text-[var(--desk-ink)] transition hover:bg-[var(--desk-surface-2)] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {activityState.status === "loading" ? "Refreshing" : "Refresh"}
-          </button>
+              {activityState.status === "loading" ? "Refreshing" : "Refresh"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -376,7 +388,7 @@ function ActivityInsightPanel({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--desk-muted)]">
-            Focus
+            Current state
           </p>
           <h3 className="mt-1 font-serif text-xl font-semibold text-[var(--desk-ink)]">
             {insight.title}
@@ -823,6 +835,19 @@ function jobToEvent(job: ActivityJob): ActivityEvent {
 
 function ingestToEvent(message: ActivityIngestedMessage): ActivityEvent {
   const paperCount = message.paper_urls?.length ?? 0;
+  const chips: ActivityChip[] = [
+    {
+      label: `${paperCount} paper link${paperCount === 1 ? "" : "s"}`,
+      className: neutralChipClasses(),
+    },
+  ];
+
+  if (message.thread_id) {
+    chips.push({
+      label: `Thread ${formatShortId(message.thread_id)}`,
+      className: sourceChipClasses(),
+    });
+  }
 
   return {
     id: `ingest-${message.id}`,
@@ -836,12 +861,7 @@ function ingestToEvent(message: ActivityIngestedMessage): ActivityEvent {
     timestamp: message.received_at ?? message.created_at,
     detail: message.error,
     detailTone: message.error ? "bad" : undefined,
-    chips: [
-      {
-        label: `${paperCount} paper link${paperCount === 1 ? "" : "s"}`,
-        className: neutralChipClasses(),
-      },
-    ],
+    chips,
     searchableText: normalizeSearchText([
       message.subject,
       message.gmail_message_id,
@@ -959,6 +979,54 @@ function resolveAuditPaperFields(
 }
 
 function getAuditTitle(event: ActivityAuditEvent) {
+  if (event.action === "gmail_ingest_received") {
+    return "Gmail ingest received";
+  }
+
+  if (event.action === "gmail_ingest_completed") {
+    return "Gmail ingest completed";
+  }
+
+  if (event.action === "gmail_ingest_failed") {
+    return "Gmail ingest failed";
+  }
+
+  if (event.action === "paper_submission_rejected") {
+    return "Paper submission rejected";
+  }
+
+  if (event.action === "paper_accepted_for_processing") {
+    return "Paper queued";
+  }
+
+  if (event.action === "paper_already_exists") {
+    return "Paper already exists";
+  }
+
+  if (event.action === "paper_processing_job_claimed") {
+    return "Job claimed";
+  }
+
+  if (event.action === "paper_processing_job_completed") {
+    return "Job completed";
+  }
+
+  if (event.action === "paper_processing_job_retry_scheduled") {
+    return "Retry scheduled";
+  }
+
+  if (event.action === "paper_report_email_sent") {
+    return "Report email sent";
+  }
+
+  if (event.action === "paper_report_email_skipped") {
+    return "Report email skipped";
+  }
+
+  if (event.action === "paper_report_email_failed") {
+    return "Report email failed";
+  }
+
   if (event.action === "paper_rating_updated") {
     return "Paper verdict updated";
   }
@@ -985,6 +1053,20 @@ function getAuditSubtitle(event: ActivityAuditEvent) {
 
   if (event.resource_type === "paper") {
     return getAuditPaperLabel(event);
+  }
+
+  if (event.resource_type === "gmail_message") {
+    return (
+      getMetadataString(event.metadata, "subject") ??
+      getMetadataString(event.metadata, "messageId") ??
+      "Scholar Inbox email"
+    );
+  }
+
+  if (event.resource_type === "paper_processing_job") {
+    const arxivId = getMetadataString(event.metadata, "arxivId");
+
+    return arxivId ? `arXiv ${arxivId}` : "Paper processing job";
   }
 
   if (event.resource_type === "saved_project_idea") {
@@ -1015,9 +1097,25 @@ function getAuditDetail(event: ActivityAuditEvent) {
   if (
     event.action === "processing_queue_run" ||
     event.action === "paper_retry_queued" ||
-    event.action === "paper_reprocess_queued"
+    event.action === "paper_reprocess_queued" ||
+    event.action === "gmail_ingest_received" ||
+    event.action === "gmail_ingest_completed" ||
+    event.action === "paper_accepted_for_processing" ||
+    event.action === "paper_already_exists" ||
+    event.action === "paper_processing_job_claimed" ||
+    event.action === "paper_processing_job_completed" ||
+    event.action === "paper_report_email_sent" ||
+    event.action === "paper_report_email_skipped"
   ) {
     return null;
+  }
+
+  if (
+    event.action === "gmail_ingest_failed" ||
+    event.action === "paper_processing_job_retry_scheduled" ||
+    event.action === "paper_report_email_failed"
+  ) {
+    return getMetadataString(event.metadata, "error");
   }
 
   if (
@@ -1086,7 +1184,15 @@ function getAuditChips(event: ActivityAuditEvent): ActivityChip[] {
   if (event.action === "processing_queue_run") {
     const mode = getMetadataString(event.metadata, "mode");
     const processed = getMetadataNumber(event.metadata, "processed");
+    const source = getMetadataString(event.metadata, "source");
     const chips: ActivityChip[] = [];
+
+    if (source) {
+      chips.push({
+        label: formatSourceChipLabel(source),
+        className: sourceChipClasses(),
+      });
+    }
 
     if (mode) {
       chips.push({
@@ -1106,19 +1212,189 @@ function getAuditChips(event: ActivityAuditEvent): ActivityChip[] {
   }
 
   if (
+    event.action === "gmail_ingest_received" ||
+    event.action === "gmail_ingest_completed" ||
+    event.action === "gmail_ingest_failed"
+  ) {
+    const source = getMetadataString(event.metadata, "source");
+    const paperUrlsFound = getMetadataNumber(event.metadata, "paperUrlsFound");
+    const papersQueued = getMetadataNumber(event.metadata, "papersQueued");
+    const papersProcessed = getMetadataNumber(event.metadata, "papersProcessed");
+    const chips: ActivityChip[] = [];
+
+    if (source) {
+      chips.push({
+        label: formatSourceChipLabel(source),
+        className: sourceChipClasses(),
+      });
+    }
+
+    if (typeof paperUrlsFound === "number") {
+      chips.push({
+        label: `${paperUrlsFound} link${paperUrlsFound === 1 ? "" : "s"}`,
+        className: neutralChipClasses(),
+      });
+    }
+
+    if (typeof papersQueued === "number") {
+      chips.push({
+        label: `${papersQueued} queued`,
+        className: neutralChipClasses(),
+      });
+    }
+
+    if (typeof papersProcessed === "number") {
+      chips.push({
+        label: `${papersProcessed} processed`,
+        className: neutralChipClasses(),
+      });
+    }
+
+    return chips;
+  }
+
+  if (
+    event.action === "paper_accepted_for_processing" ||
+    event.action === "paper_already_exists" ||
+    event.action === "paper_submission_rejected"
+  ) {
+    const source = getMetadataString(event.metadata, "source");
+    const jobId = getMetadataString(event.metadata, "jobId");
+    const processingStatus = getMetadataString(event.metadata, "processingStatus");
+    const queuedExisting = getMetadataBoolean(event.metadata, "queuedExisting");
+    const chips: ActivityChip[] = [];
+
+    if (source) {
+      chips.push({
+        label: formatSourceChipLabel(source),
+        className: sourceChipClasses(),
+      });
+    }
+
+    if (jobId) {
+      chips.push({
+        label: `Job ${formatShortId(jobId)}`,
+        className: neutralChipClasses(),
+      });
+    }
+
+    if (processingStatus) {
+      chips.push({
+        label: formatLabel(processingStatus),
+        className: neutralChipClasses(),
+      });
+    }
+
+    if (typeof queuedExisting === "boolean") {
+      chips.push({
+        label: queuedExisting ? "Queued again" : "Already tracked",
+        className: neutralChipClasses(),
+      });
+    }
+
+    return chips;
+  }
+
+  if (
+    event.action === "paper_processing_job_claimed" ||
+    event.action === "paper_processing_job_completed" ||
+    event.action === "paper_processing_job_retry_scheduled"
+  ) {
+    const source = getMetadataString(event.metadata, "source");
+    const attempt = getMetadataNumber(event.metadata, "attempt");
+    const nextRunAfter = getMetadataString(event.metadata, "nextRunAfter");
+    const chips: ActivityChip[] = [];
+
+    if (source) {
+      chips.push({
+        label: formatSourceChipLabel(source),
+        className: sourceChipClasses(),
+      });
+    }
+
+    if (typeof attempt === "number") {
+      chips.push({
+        label: `Try ${attempt}`,
+        className: neutralChipClasses(),
+      });
+    }
+
+    if (nextRunAfter) {
+      chips.push({
+        label: `Next run ${formatDateTime(nextRunAfter)}`,
+        className: neutralChipClasses(),
+      });
+    }
+
+    return chips;
+  }
+
+  if (
+    event.action === "paper_report_email_sent" ||
+    event.action === "paper_report_email_skipped" ||
+    event.action === "paper_report_email_failed" ||
+    event.action === "paper_report_email_resent"
+  ) {
+    const source = getMetadataString(event.metadata, "source");
+    const model = getMetadataString(event.metadata, "model");
+    const emailId = getMetadataString(event.metadata, "emailId");
+    const reason = getMetadataString(event.metadata, "reason");
+    const chips: ActivityChip[] = [];
+
+    if (source) {
+      chips.push({
+        label: formatSourceChipLabel(source),
+        className: sourceChipClasses(),
+      });
+    }
+
+    if (model) {
+      chips.push({
+        label: formatModelName(model),
+        className: neutralChipClasses(),
+      });
+    }
+
+    if (emailId) {
+      chips.push({
+        label: `Email ${formatShortId(emailId)}`,
+        className: neutralChipClasses(),
+      });
+    }
+
+    if (reason) {
+      chips.push({
+        label: formatLabel(reason),
+        className: neutralChipClasses(),
+      });
+    }
+
+    return chips;
+  }
+
+  if (
     event.action === "paper_retry_queued" ||
     event.action === "paper_reprocess_queued"
   ) {
+    const source = getMetadataString(event.metadata, "source");
     const jobId = getMetadataString(event.metadata, "jobId");
+    const chips: ActivityChip[] = [];
 
-    return jobId
-      ? [
-          {
-            label: `Job ${formatShortId(jobId)}`,
-            className: sourceChipClasses(),
-          },
-        ]
-      : [];
+    if (source) {
+      chips.push({
+        label: formatSourceChipLabel(source),
+        className: sourceChipClasses(),
+      });
+    }
+
+    if (jobId) {
+      chips.push({
+        label: `Job ${formatShortId(jobId)}`,
+        className: neutralChipClasses(),
+      });
+    }
+
+    return chips;
   }
 
   if (
@@ -1145,7 +1421,9 @@ function getAuditDetailTone(
 ): ActivityEvent["detailTone"] {
   if (
     event.action === "admin_login_failed" ||
-    event.action === "admin_login_rate_limited"
+    event.action === "admin_login_rate_limited" ||
+    event.action === "gmail_ingest_failed" ||
+    event.action === "paper_report_email_failed"
   ) {
     return "bad";
   }
@@ -1191,6 +1469,31 @@ function getMetadataNumber(
   const value = metadata?.[key];
 
   return typeof value === "number" ? value : null;
+}
+
+function getMetadataBoolean(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+
+  return typeof value === "boolean" ? value : null;
+}
+
+function formatSourceChipLabel(value: string) {
+  if (value === "gmail_app_script") {
+    return "Source: Gmail app script";
+  }
+
+  if (value === "queue_runner") {
+    return "Source: queue runner";
+  }
+
+  if (value === "email_link") {
+    return "Source: email link";
+  }
+
+  return `Source: ${formatLabel(value)}`;
 }
 
 function formatRatingLabel(value: string) {

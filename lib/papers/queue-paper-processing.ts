@@ -128,7 +128,7 @@ export async function queuePaperForProcessing({
     action: mode === "retry" ? "paper_retry_queued" : "paper_reprocess_queued",
     resourceType: "paper",
     resourceId: paper.id,
-    metadata: { jobId: job.id, arxivId: paper.arxiv_id },
+    metadata: { source: "app", jobId: job.id, arxivId: paper.arxiv_id },
   });
 
   return Response.json(

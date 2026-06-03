@@ -10,14 +10,17 @@ ArXiv Sieve is a small research desk for turning Scholar Inbox emails and arXiv 
 
 - Accepts manual arXiv URLs and Scholar Inbox links.
 - Ingests Scholar Inbox digest emails through Google Apps Script.
+- Marks successfully ingested Gmail threads processed, with an opt-in read toggle.
 - Resolves Scholar Inbox links without leaking private `sha_key` values.
 - Queues papers in Supabase and processes ready jobs with retry/backoff.
 - Summarizes papers with Gemini: overview, contributions, prior-work delta, and project ideas.
 - Sends one Resend report email per paper with signed verdict links.
+- Provides a dev-mode Chrome extension for adding arXiv pages with an optional initial verdict.
 - Lets the curator rate papers, save project ideas, delete/reprocess/retry papers, and resend failed report emails.
 - Keeps `/api/papers` public while all write actions require the curator passphrase cookie.
-- Includes Activity/Ops views for ingested emails, queued jobs, failures, audit events, report email status, and retry schedule.
+- Includes Activity/Ops views for current issues plus append-only event history: ingests, queue runs, job claims/completions/retries, report email status, and curator actions.
 - Adds paper, project, author, and model views with search, filters, grid/list modes, and lightweight ranking.
+- Ships a lightweight PWA manifest so the existing mobile web flow can evolve toward web push before any native app work.
 
 ## Stack
 
@@ -54,6 +57,7 @@ Create `.env.local` with the values from `.env.example`. The important split is:
 - admin-only routes require `ADMIN_PASSWORD` and `ADMIN_SESSION_SECRET`
 - Apps Script uses `EMAIL_INGEST_SECRET`
 - signed email verdict buttons use `EMAIL_ACTION_SECRET`
+- the local Chrome extension uses `EXTENSION_API_SECRET`
 - queue processing can be triggered by admin actions, email ingest, or cron-style calls
 - `APP_BASE_URL` must be the deployed URL in production so email links point to the right app
 - Resend requires a verified sender domain for `REPORT_EMAIL_FROM`
@@ -67,6 +71,7 @@ Run `supabase/schema.sql` in your Supabase project. It defines:
 - `gmail_ingested_messages`
 - `saved_project_ideas`
 - login rate-limit/audit tables
+- `admin_audit_events`, currently used as the append-only activity log
 
 ## Gmail Ingest
 
@@ -76,6 +81,21 @@ Copy `scripts/google_apps_script.gs` into Google Apps Script, set:
 - `PAPER_LIBRARY_SECRET` to the same value as `EMAIL_INGEST_SECRET`
 
 The script logs sanitized diagnostics and labels processed threads so failed webhook calls can be retried.
+By default `MARK_READ_ON_SUCCESS` is `true`, so Gmail threads are marked read only after the webhook returns 2xx.
+
+## Chrome Extension
+
+The unpacked extension lives in `chrome-extension/`. Set `EXTENSION_API_SECRET`,
+load that folder through `chrome://extensions` with Developer mode enabled, then
+save your deployed app URL and the same secret in the extension options.
+
+It tries to show a right-edge **Sieve** button on arXiv pages and also includes a
+toolbar popup fallback for Chrome PDF viewer pages.
+
+## Intentional Non-Features
+
+- Scholar Inbox rating sync is not implemented yet because there is no stable public rating-write API. The practical fallback is to open Scholar Inbox links manually when you want to update recommendation training there.
+- Native iPhone/Apple Watch notifications are deferred. The next reasonable mobile step is web push for an installed PWA, keeping email verdict links as the reliable baseline.
 
 ## Quality Checks
 

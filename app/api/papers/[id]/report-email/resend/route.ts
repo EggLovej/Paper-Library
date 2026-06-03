@@ -130,6 +130,18 @@ export async function POST(
     });
 
     if (emailResult.status !== "sent") {
+      await logAdminAuditEvent(supabase, request, {
+        action: "paper_report_email_skipped",
+        resourceType: "paper",
+        resourceId: paper.id,
+        metadata: {
+          source: "app",
+          arxivId: paper.arxiv_id,
+          model: paper.processing_model,
+          reason: "email_not_configured",
+        },
+      });
+
       return Response.json(
         { error: "Report email is not configured." },
         { status: 400 },
@@ -162,7 +174,12 @@ export async function POST(
       action: "paper_report_email_resent",
       resourceType: "paper",
       resourceId: paper.id,
-      metadata: { arxivId: paper.arxiv_id },
+      metadata: {
+        source: "app",
+        arxivId: paper.arxiv_id,
+        model: paper.processing_model,
+        emailId: emailResult.id ?? null,
+      },
     });
 
     return Response.json({ status: "sent", paper: updatedPaper });
@@ -182,7 +199,12 @@ export async function POST(
       action: "paper_report_email_failed",
       resourceType: "paper",
       resourceId: paper.id,
-      metadata: { arxivId: paper.arxiv_id, error: message },
+      metadata: {
+        source: "app",
+        arxivId: paper.arxiv_id,
+        model: paper.processing_model,
+        error: message,
+      },
     });
 
     return Response.json(

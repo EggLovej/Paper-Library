@@ -1,6 +1,7 @@
 const PAPER_LIBRARY_WEBHOOK = "https://paperadar.app/api/ingest/scholar-email";
 const PAPER_LIBRARY_SECRET = {secret};
 const PROCESSED_LABEL = "PaperLibraryProcessed";
+const MARK_READ_ON_SUCCESS = true;
 
 function ingestScholarInbox() {
   const query = 'from:noreply@cvlibs.net newer_than:30d -label:PaperLibraryProcessed';
@@ -14,9 +15,10 @@ function ingestScholarInbox() {
 
   for (const thread of threads) {
     const messages = thread.getMessages();
+    const threadId = thread.getId();
 
     console.log(
-      `Thread: id=${thread.getId()}, subject="${thread.getFirstMessageSubject()}", messages=${messages.length}`
+      `Thread: id=${threadId}, subject="${thread.getFirstMessageSubject()}", messages=${messages.length}`
     );
 
     for (const message of messages) {
@@ -58,6 +60,7 @@ function ingestScholarInbox() {
           },
           payload: JSON.stringify({
             messageId,
+            threadId,
             subject,
             date,
             body,
@@ -92,11 +95,15 @@ function ingestScholarInbox() {
 
       if (status >= 200 && status < 300) {
         thread.addLabel(processedLabel);
+        if (MARK_READ_ON_SUCCESS) {
+          thread.markRead();
+        }
         console.log(
           JSON.stringify({
             event: "message_marked_processed",
             messageId,
-            threadId: thread.getId(),
+            threadId,
+            markedRead: MARK_READ_ON_SUCCESS,
           })
         );
       } else {

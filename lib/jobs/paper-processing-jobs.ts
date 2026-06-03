@@ -1,3 +1,4 @@
+import { logSystemAuditEvent } from "@/lib/auth/audit";
 import { processPaper } from "@/lib/paper-processing";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 
@@ -6,6 +7,10 @@ type PaperProcessingJob = {
   paper_id: string;
   arxiv_id: string;
   attempts: number;
+};
+
+type ProcessPaperProcessingJobsOptions = {
+  source?: string;
 };
 
 const RETRY_DELAYS_MS = [
@@ -160,17 +165,22 @@ async function markJobFailed(
   if (paperError) {
     throw new Error(paperError.message);
   }
+
+  return runAfter.toISOString();
 }
 
 export async function processPaperProcessingJobs(
   supabase: SupabaseServerClient,
   limit = 1,
+  options: ProcessPaperProcessingJobsOptions = {},
 ) {
+  const source = options.source ?? "queue_runner";
   const results: Array<{
     jobId: string;
     paperId: string;
     arxivId: string;
     status: string;
+    nextRunAfter?: string;
     error?: string;
   }> = [];
 
@@ -181,16 +191,53 @@ export async function processPaperProcessingJobs(
       break;
     }
 
+    await logSystemAuditEvent(supabase, {
+      action: "paper_processing_job_claimed",
+      resourceType: "paper_processing_job",
+      resourceId: job.id,
+      metadata: {
+        source,
+        paperId: job.paper_id,
+        arxivId: job.arxiv_id,
+        attempt: job.attempts,
+      },
+    });
+
     const result = await processPaper(supabase, job.paper_id, job.arxiv_id);
+    let nextRunAfter: string | undefined;
 
     if (result.status === "completed") {
       await markJobCompleted(supabase, job.id);
+      await logSystemAuditEvent(supabase, {
+        action: "paper_processing_job_completed",
+        resourceType: "paper_processing_job",
+        resourceId: job.id,
+        metadata: {
+          source,
+          paperId: job.paper_id,
+          arxivId: job.arxiv_id,
+          attempt: job.attempts,
+        },
+      });
     } else {
-      await markJobFailed(
+      nextRunAfter = await markJobFailed(
         supabase,
         job,
         result.error ?? "Unknown processing error.",
       );
+      await logSystemAuditEvent(supabase, {
+        action: "paper_processing_job_retry_scheduled",
+        resourceType: "paper_processing_job",
+        resourceId: job.id,
+        metadata: {
+          source,
+          paperId: job.paper_id,
+          arxivId: job.arxiv_id,
+          attempt: job.attempts,
+          nextRunAfter,
+          error: result.error ?? "Unknown processing error.",
+        },
+      });
     }
 
     results.push({
@@ -198,6 +245,7 @@ export async function processPaperProcessingJobs(
       paperId: job.paper_id,
       arxivId: job.arxiv_id,
       status: result.status,
+      ...(nextRunAfter ? { nextRunAfter } : {}),
       ...(result.error ? { error: result.error } : {}),
     });
   }

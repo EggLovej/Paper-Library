@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
+import { logSystemAuditEvent } from "./auth/audit";
 import { sendPaperReportEmail } from "./email/paper-report";
 import { formatModelName } from "./model-names";
 import type { SupabaseServerClient } from "./supabase/server";
@@ -209,18 +210,56 @@ export async function processPaper(
             updated_at: new Date().toISOString(),
           })
           .eq("id", paperId);
+
+        await logSystemAuditEvent(supabase, {
+          action: "paper_report_email_sent",
+          resourceType: "paper",
+          resourceId: paperId,
+          metadata: {
+            source: "queue_runner",
+            arxivId,
+            model,
+            emailId: emailResult.id ?? null,
+          },
+        });
+      } else {
+        await logSystemAuditEvent(supabase, {
+          action: "paper_report_email_skipped",
+          resourceType: "paper",
+          resourceId: paperId,
+          metadata: {
+            source: "queue_runner",
+            arxivId,
+            model,
+            reason: "email_not_configured",
+          },
+        });
       }
     } catch (emailError) {
+      const emailErrorMessage =
+        emailError instanceof Error
+          ? emailError.message
+          : "Unknown email error.";
+
       await supabase
         .from("papers")
         .update({
-          report_email_error:
-            emailError instanceof Error
-              ? emailError.message
-              : "Unknown email error.",
+          report_email_error: emailErrorMessage,
           updated_at: new Date().toISOString(),
         })
         .eq("id", paperId);
+
+      await logSystemAuditEvent(supabase, {
+        action: "paper_report_email_failed",
+        resourceType: "paper",
+        resourceId: paperId,
+        metadata: {
+          source: "queue_runner",
+          arxivId,
+          model,
+          error: emailErrorMessage,
+        },
+      });
     }
 
     return { status: "completed", summary };

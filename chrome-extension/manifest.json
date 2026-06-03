@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "ArXiv Sieve Clipper",
+  "version": "0.1.0",
+  "description": "Add arXiv papers to ArXiv Sieve from the current tab.",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "https://arxiv.org/*",
+    "https://www.arxiv.org/*",
+    "https://paperadar.app/*",
+    "http://localhost:3000/*"
+  ],
+  "action": {
+    "default_title": "Add to Sieve",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://arxiv.org/*", "https://www.arxiv.org/*"],
+      "css": ["content.css"],
+      "js": ["shared.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

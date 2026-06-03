@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="options.css" />
+    <title>ArXiv Sieve Clipper Settings</title>
+  </head>
+  <body>
+    <main>
+      <p class="kicker">ArXiv Sieve</p>
+      <h1>Clipper settings</h1>
+      <p class="muted">
+        Use the same deployed app URL and extension API secret you configured in
+        Vercel.
+      </p>
+
+      <form id="settings-form">
+        <label for="app-base-url">Sieve app URL</label>
+        <input id="app-base-url" name="appBaseUrl" type="url" required />
+
+        <label for="extension-api-secret">Extension API secret</label>
+        <input
+          id="extension-api-secret"
+          name="extensionApiSecret"
+          type="password"
+          autocomplete="off"
+          required
+        />
+
+        <button type="submit">Save settings</button>
+      </form>
+
+      <p id="status" class="status" role="status"></p>
+    </main>
+
+    <script src="shared.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

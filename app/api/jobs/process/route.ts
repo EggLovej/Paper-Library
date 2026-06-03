@@ -59,9 +59,12 @@ export async function POST(request: Request) {
   }
 
   let results: Awaited<ReturnType<typeof processPaperProcessingJobs>>;
+  const mode = isBearerAuthorized(request) ? "bearer" : "admin";
 
   try {
-    results = await processPaperProcessingJobs(supabase, getLimit(request));
+    results = await processPaperProcessingJobs(supabase, getLimit(request), {
+      source: mode === "bearer" ? "queue_runner" : "app",
+    });
   } catch (error) {
     return Response.json(
       {
@@ -78,8 +81,9 @@ export async function POST(request: Request) {
     action: "processing_queue_run",
     resourceType: "paper_processing_jobs",
     metadata: {
+      source: mode === "bearer" ? "queue_runner" : "app",
       processed: results.length,
-      mode: isBearerAuthorized(request) ? "bearer" : "admin",
+      mode,
     },
   });
 
